@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ওষুধের ঘড়ি · Medicine Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: one-column phone app. Setup and "add medicine" are full-screen step-by-step wizards with a fixed Back/Next bar; alarms take over the whole screen */
+  --paper:#eef3ee; --card:#ffffff; --ink:#123330; --muted:#5a706c; --line:#d3ded8;
+  --leaf:#1d7457; --leaf-soft:#d8ece2; --pill:#f0b429; --pill-soft:#fdf1d2;
+  --alert:#c8412c; --alert-soft:#fbe2dc; --ok:#2e8b57;
+  --display:"Baloo Da 2","Hind Siliguri",system-ui,sans-serif;
+  --body:"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0f1a19; --card:#172625; --ink:#e4efeb; --muted:#9db3ad; --line:#2a3d3b;
+  --leaf:#4cbf91; --leaf-soft:#1c3a31; --pill:#f5c451; --pill-soft:#3a3120;
+  --alert:#ff7a63; --alert-soft:#3d221d; --ok:#5fcf8d; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --paper:#0f1a19; --card:#172625; --ink:#e4efeb; --muted:#9db3ad; --line:#2a3d3b;
+  --leaf:#4cbf91; --leaf-soft:#1c3a31; --pill:#f5c451; --pill-soft:#3a3120;
+  --alert:#ff7a63; --alert-soft:#3d221d; --ok:#5fcf8d; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+h1,h2,h3{font-family:var(--display);line-height:1.15;margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--pill);outline-offset:2px}
+.app{max-width:560px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+header.top{position:sticky;top:0;z-index:5;background:var(--paper);padding:12px 16px 10px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.logo{width:38px;height:38px;flex:none}
+.top h1{font-size:23px;font-weight:800}
+.top .sub{font-size:13px;color:var(--muted);margin-top:-2px}
+.top .grow{flex:1;min-width:0}
+.lang{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:4px 12px;font-size:14px}
+main{flex:1;padding:16px 16px 120px;display:flex;flex-direction:column;gap:14px}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:6;padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs .in{display:flex;max-width:560px;width:100%}
+nav.tabs button{flex:1;background:none;border:0;padding:9px 4px 11px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:13px;color:var(--muted)}
+nav.tabs button svg{width:24px;height:24px}
+nav.tabs button[aria-current="page"]{color:var(--leaf);font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.col{display:flex;flex-direction:column;gap:10px}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.btn{border:0;border-radius:12px;padding:12px 18px;font-weight:700;background:var(--leaf);color:#fff;display:inline-flex;align-items:center;gap:8px;justify-content:center;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.warn{background:var(--alert)}
+.btn.pill{background:var(--pill);color:#2b2000}
+.btn.big{font-size:20px;padding:16px 22px;border-radius:14px}
+.btn.full{width:100%}
+.btn:disabled{opacity:.45}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-size:15px}
+.chip[aria-pressed="true"]{background:var(--leaf);border-color:var(--leaf);color:#fff;font-weight:600}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted);font-weight:600}
+.inp{border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:10px 12px;font-size:17px;color:var(--ink);font-weight:400;width:100%}
+.seg{display:flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;flex-wrap:wrap}
+.seg button{flex:1;border:0;background:var(--card);padding:10px 6px;font-size:15px;min-width:80px}
+.seg button[aria-pressed="true"]{background:var(--leaf);color:#fff;font-weight:700}
+.banner{border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;font-size:15px}
+.banner.info{background:var(--leaf-soft)}
+.banner.warn{background:var(--pill-soft)}
+.banner.danger{background:var(--alert-soft)}
+.banner b{display:block}
+.banner .ic{flex:none;width:22px;height:22px;margin-top:2px}
+.next{background:var(--leaf);color:#fff;border:0}
+.next .when{font-family:var(--display);font-size:38px;font-weight:800;line-height:1}
+.next .lbl{opacity:.85;font-size:14px}
+.thumb{width:52px;height:52px;border-radius:12px;object-fit:cover;flex:none;background:var(--pill-soft);display:grid;place-items:center;color:var(--leaf)}
+.thumb svg{width:30px;height:30px}
+.dose{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.dose:first-child{border-top:0}
+.dose .nm{font-weight:700}
+.dose .meta{font-size:14px;color:var(--muted)}
+.grow{flex:1;min-width:0}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap;display:inline-block}
+.tag.taken{background:var(--leaf-soft);color:var(--ok)}
+.tag.due{background:var(--pill);color:#2b2000}
+.tag.missed{background:var(--alert-soft);color:var(--alert)}
+.tag.up,.tag.who{background:var(--paper);color:var(--muted);border:1px solid var(--line)}
+.tag.skip{background:var(--paper);color:var(--muted)}
+.slot h3{font-size:18px}
+.week{display:flex;gap:6px}
+.week div{flex:1;text-align:center;font-size:12px;color:var(--muted)}
+.week i{display:block;height:34px;border-radius:8px;margin-bottom:4px;background:var(--line);position:relative;overflow:hidden}
+.week i b{position:absolute;left:0;right:0;bottom:0;background:var(--leaf)}
+.medrow{display:flex;gap:12px;align-items:center}
+.iconbtn{background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;font-size:14px;color:var(--ink)}
+.tr{display:flex;gap:8px;align-items:center}
+.tr input[type=time]{flex:1}
+/* Wizard */
+.wiz-head{display:flex;flex-direction:column;gap:8px}
+.progress{display:flex;gap:6px}
+.progress i{flex:1;height:6px;border-radius:3px;background:var(--line)}
+.progress i.on{background:var(--leaf)}
+.wiz-head .stepno{font-size:14px;color:var(--muted);font-weight:600}
+.wiz-head h2{font-size:26px}
+.wiz-nav{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;justify-content:center}
+.wiz-nav .in{display:flex;gap:10px;max-width:528px;width:100%}
+.wiz-nav .btn{flex:1;font-size:18px;padding:14px}
+.wiz-nav .btn.ghost{flex:0 0 auto;min-width:96px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.tiles.three{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+.tile{border:2px solid var(--line);background:var(--card);border-radius:16px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-weight:600;font-size:16px;line-height:1.25}
+.tile svg{width:38px;height:38px;color:var(--leaf)}
+.tile small{font-weight:400;color:var(--muted);font-size:13px}
+.tile[aria-pressed="true"]{border-color:var(--leaf);background:var(--leaf-soft)}
+.mealtile{border:2px solid var(--line);background:var(--card);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.mealtile.on{border-color:var(--leaf);background:var(--leaf-soft)}
+.mealtile .hd{display:flex;align-items:center;gap:10px}
+.mealtile .hd button{flex:1;text-align:left;background:none;border:0;padding:0;font-weight:700;font-size:18px;display:flex;align-items:center;gap:10px}
+.box{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);display:grid;place-items:center;flex:none;background:var(--card)}
+.on .box{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-size:22px;font-weight:700;line-height:1}
+.stepper input{width:70px;text-align:center;padding:8px 4px}
+.sum{display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;align-items:start}
+.sum dt{color:var(--muted);font-size:14px;font-weight:600;padding-top:2px}
+.sum dd{margin:0;font-weight:600}
+.sum .ed{font-size:13px;padding:4px 10px}
+.photo-drop{border:2px dashed var(--line);border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center}
+.photo-drop img{width:72px;height:72px;border-radius:12px;object-fit:cover}
+.hidden{display:none!important}
+.hero{background:linear-gradient(135deg,var(--pill-soft),var(--leaf-soft));border:0}
+.rv.off{opacity:.55}
+/* Alarm */
+.alarm{position:fixed;inset:0;z-index:50;background:var(--alert);color:#fff;display:flex;flex-direction:column;padding:22px 18px calc(22px + env(safe-area-inset-bottom));overflow:auto}
+.alarm .ring{width:80px;height:80px;margin:4px auto 6px;animation:shake .5s infinite;flex:none}
+@media (prefers-reduced-motion:reduce){.alarm .ring{animation:none}}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+.alarm h2{font-size:32px;text-align:center}
+.alarm .clock{text-align:center;font-family:var(--display);font-size:21px;opacity:.92}
+.alarm .count{text-align:center;margin-top:6px;font-size:18px;font-weight:700;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 14px;align-self:center}
+.alarm .list{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.alarm .am{background:rgba(255,255,255,.14);border-radius:16px;padding:12px;display:flex;gap:12px;align-items:center}
+.alarm .am img,.alarm .am .thumb{width:70px;height:70px;border-radius:14px}
+.alarm .am .no{font-family:var(--display);font-size:28px;font-weight:800;width:28px;text-align:center;flex:none}
+.alarm .am .nm{font-family:var(--display);font-size:23px;font-weight:700;line-height:1.1}
+.alarm .am .meta{font-size:16px}
+.alarm .first{background:#fff;color:var(--alert);border-radius:14px;padding:12px;font-weight:700}
+.alarm .acts{display:flex;flex-direction:column;gap:10px;margin-top:auto}
+.alarm .btn{background:#fff;color:var(--alert);font-size:22px;padding:18px}
+.alarm .btn.ghost{background:transparent;color:#fff;border:2px solid rgba(255,255,255,.7);font-size:18px;padding:14px}
+/* Big-button mode */
+.big .who{font-family:var(--display);font-size:30px;font-weight:800;text-align:center}
+.big .bigmed{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.big .bigmed img,.big .bigmed .thumb{width:160px;height:160px;border-radius:24px}
+.big .bigmed .thumb svg{width:84px;height:84px}
+.big .bigmed .nm{font-family:var(--display);font-size:32px;font-weight:800;line-height:1.05}
+.big .bigmed .meta{font-size:21px}
+.big .btn.big{font-size:28px;padding:22px;border-radius:20px}
+.toast{position:fixed;left:50%;top:72px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:12px;font-size:15px;z-index:60;max-width:90%;text-align:center}
+.spin{width:28px;height:28px;border:4px solid var(--line);border-top-color:var(--leaf);border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="var(--leaf)"/><rect x="9" y="15" width="22" height="10" rx="5" fill="var(--pill)" transform="rotate(-35 20 20)"/><rect x="9" y="15" width="11" height="10" rx="5" fill="#fff" transform="rotate(-35 20 20)"/><circle cx="20" cy="20" r="2" fill="var(--ink)"/></svg>
+    <div class="grow"><h1 id="appname">ওষুধের ঘড়ি</h1><div class="sub" id="today-date"></div></div>
+    <button class="lang" id="langbtn" data-act="lang">English</button>
+  </header>
+  <div id="unlock" class="hidden" style="padding:10px 16px 0"></div>
+  <main id="main"></main>
+  <nav class="tabs" id="tabs"><div class="in" id="tabs-in"></div></nav>
+  <div class="wiz-nav hidden" id="wiznav"><div class="in" id="wiznav-in"></div></div>
+</div>
+<div id="alarm" class="alarm hidden" role="alertdialog" aria-modal="true"></div>
+<input type="file" id="file-photo" accept="image/*" capture="environment" class="hidden">
+<input type="file" id="file-rx" accept="image/*" multiple class="hidden">
+<input type="file" id="file-audio" accept="audio/*" capture="user" class="hidden">
+
+<script>
+"use strict";
+/* ============ Basics ============ */
+const MEALS0 = {b:"08:00", l:"13:30", d:"21:00", bed:"22:30"};
+const DEFAULT = {v:2, lang:"bn", profiles:[], filter:"all", meds:[], log:{}, voice:{rate:0.8, name:""}, bigMode:false, setupDone:false, updatedAt:0};
+let S = structuredClone(DEFAULT), P = {}, A = {};
+const NAT = window.AndroidApp || null;   // present inside the Android APK
+let ttsSeq = 0, warnedSilent = false; const ttsWait = {};
+window.__ttsDone = id => { const r = ttsWait[id]; if (r){ delete ttsWait[id]; r(); } };
+let view = "home", setup = null, wiz = null, review = null, addFor = null;
+const T = (en, bn) => S.lang === "bn" ? bn : en;
+const BN = "০১২৩৪৫৬৭৮৯";
+const num = x => S.lang === "bn" ? String(x).replace(/\d/g, d => BN[d]) : String(x);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const pad = n => String(n).padStart(2, "0");
+const dkey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const toMin = t => { const [h, m] = String(t).split(":").map(Number); return h*60 + m; };
+const fromMin = m => { m = ((Math.round(m) % 1440) + 1440) % 1440; return `${pad(Math.floor(m/60))}:${pad(m%60)}`; };
+const nowMin = () => { const d = new Date(); return d.getHours()*60 + d.getMinutes(); };
+const dateLabel = (ds, o = {day:"numeric", month:"short"}) => new Date(ds + "T00:00").toLocaleDateString(S.lang === "bn" ? "bn-BD" : "en-GB", o);
+function fmtTime(t){
+  const [h, m] = t.split(":").map(Number), h12 = ((h + 11) % 12) + 1;
+  if (S.lang === "bn"){ const p = h < 4 ? "রাত" : h < 12 ? "সকাল" : h < 16 ? "দুপুর" : h < 18 ? "বিকাল" : h < 20 ? "সন্ধ্যা" : "রাত"; return `${p} ${num(h12)}:${num(pad(m))}`; }
+  return `${h12}:${pad(m)} ${h < 12 ? "AM" : "PM"}`;
+}
+function durText(min){
+  min = Math.abs(min);
+  if (min < 60) return T(`${min} min`, `${num(min)} মিনিট`);
+  const h = min / 60;
+  return Number.isInteger(h) ? T(`${h} hour${h > 1 ? "s" : ""}`, `${num(h)} ঘণ্টা`) : T(`${Math.floor(h)} h ${min%60} min`, `${num(Math.floor(h))} ঘণ্টা ${num(min%60)} মিনিট`);
+}
+
+/* ============ Reference lists ============ */
+const RELS = [["me","Myself","নিজে"],["father","Father","আব্বা"],["mother","Mother","আম্মা"],["husband","Husband","স্বামী"],["wife","Wife","স্ত্রী"],["gfather","Grandfather","দাদা / নানা"],["gmother","Grandmother","দাদি / নানি"],["child","Child","সন্তান"],["other","Someone else","অন্য কেউ"]];
+const DISEASES = [["diabetes","Diabetes","ডায়াবেটিস"],["bp","High blood pressure","উচ্চ রক্তচাপ"],["gastric","Gastric / ulcer","গ্যাস্ট্রিক / আলসার"],["heart","Heart disease","হৃদরোগ"],["thyroid","Thyroid","থাইরয়েড"],["asthma","Asthma / breathing","হাঁপানি / শ্বাসকষ্ট"],["pain","Arthritis / joint pain","বাত / জয়েন্টে ব্যথা"],["sleep","Sleep problem","ঘুমের সমস্যা"],["chol","Cholesterol","কোলেস্টেরল"],["kidney","Kidney disease","কিডনি রোগ"],["liver","Liver disease","লিভারের রোগ"],["eye","Eye problem","চোখের সমস্যা"],["skin","Skin problem","চর্মরোগ"],["mental","Anxiety / depression","দুশ্চিন্তা / বিষণ্ণতা"],["preg","Pregnancy","গর্ভাবস্থা"]];
+const CATS = [["other","Other / general","অন্যান্য"],["nsaid","Painkiller (NSAID)","ব্যথানাশক (NSAID)"],["para","Paracetamol (fever/pain)","প্যারাসিটামল (জ্বর/ব্যথা)"],["gastric","Gastric / acidity","গ্যাস্ট্রিকের ওষুধ"],["sleep","Sleeping pill","ঘুমের ওষুধ"],["diabetes","Diabetes","ডায়াবেটিসের ওষুধ"],["bp","Blood pressure","প্রেসারের ওষুধ"],["thyroid","Thyroid","থাইরয়েডের ওষুধ"],["antibiotic","Antibiotic","অ্যান্টিবায়োটিক"],["vitamin","Vitamin / calcium","ভিটামিন / ক্যালসিয়াম"]];
+/* Forms: unit word, step size, whether it's counted for stock, default "where" */
+const FORMS = {
+  tablet:{en:"Tablet", bn:"ট্যাবলেট", uen:"tablet", ubn:"টি", say:"ট্যাবলেট", step:.5, count:true},
+  capsule:{en:"Capsule", bn:"ক্যাপসুল", uen:"capsule", ubn:"টি", say:"ক্যাপসুল", step:1, count:true},
+  syrup:{en:"Syrup / liquid", bn:"সিরাপ / তরল", uen:"spoon", ubn:"চামচ", say:"চামচ", step:.5},
+  drop:{en:"Drops", bn:"ড্রপ (ফোঁটা)", uen:"drop", ubn:"ফোঁটা", say:"ফোঁটা", step:1, sites:["both_eyes","right_eye","left_eye","both_ears","right_ear","left_ear","nose","mouth"]},
+  cream:{en:"Cream / ointment / paste / gel", bn:"মলম / ক্রিম / পেস্ট / জেল", uen:"time", ubn:"বার", say:"", step:1, sites:["skin","wound","mouth","gums","other"], noAmt:true},
+  inhaler:{en:"Inhaler", bn:"ইনহেলার", uen:"puff", ubn:"চাপ", say:"চাপ", step:1, count:true},
+  spray:{en:"Spray", bn:"স্প্রে", uen:"spray", ubn:"বার স্প্রে", say:"বার স্প্রে", step:1, sites:["nose","mouth","skin"]},
+  insulin:{en:"Insulin", bn:"ইনসুলিন", uen:"unit", ubn:"ইউনিট", say:"ইউনিট", step:1},
+  inj:{en:"Injection", bn:"ইনজেকশন", uen:"injection", ubn:"টি", say:"ইনজেকশন", step:1, count:true},
+  powder:{en:"Powder / sachet", bn:"পাউডার / স্যাশে", uen:"sachet", ubn:"প্যাকেট", say:"প্যাকেট", step:.5, count:true},
+  supp:{en:"Suppository", bn:"সাপোজিটরি", uen:"suppository", ubn:"টি", say:"সাপোজিটরি", step:1, count:true}
+};
+const SITES = {both_eyes:["both eyes","দুই চোখে"], right_eye:["right eye","ডান চোখে"], left_eye:["left eye","বাম চোখে"], both_ears:["both ears","দুই কানে"], right_ear:["right ear","ডান কানে"], left_ear:["left ear","বাম কানে"], nose:["nose","নাকে"], mouth:["mouth","মুখে"], skin:["on the skin","ত্বকে"], wound:["on the wound","ক্ষতস্থানে"], gums:["teeth / gums","দাঁতে / মাড়িতে"], other:["other place","অন্য জায়গায়"]};
+const siteName = m => m.siteText ? m.siteText : (SITES[m.site] ? T(SITES[m.site][0], SITES[m.site][1]) : "");
+const SLOT = {b:["Morning","সকাল","Breakfast","নাস্তা"], l:["Noon","দুপুর","Lunch","দুপুরের খাবার"], d:["Night","রাত","Dinner","রাতের খাবার"], bed:["Bedtime","ঘুমানোর আগে","Bedtime","ঘুম"]};
+const FOOD = {before:["Before food","খাওয়ার আগে"], after:["After food","খাওয়ার পরে"], with:["With food","খাবারের সাথে"], empty:["Empty stomach","খালি পেটে"], any:["Any time","যেকোনো সময়"]};
+const catName = c => { const x = CATS.find(k => k[0] === c) || CATS[0]; return T(x[1], x[2]); };
+const disName = d => { const x = DISEASES.find(k => k[0] === d); return x ? T(x[1], x[2]) : d; };
+const formOf = m => FORMS[m.form] || FORMS.tablet;
+const formName = f => T((FORMS[f] || FORMS.tablet).en, (FORMS[f] || FORMS.tablet).bn);
+
+const KEYWORDS = {
+  nsaid:["ibuprofen","diclofenac","naproxen","aceclofenac","ketorolac","etoricoxib","indomethacin","mefenamic","piroxicam","celecoxib","clofenac","flexi","naprosyn","brufen"],
+  gastric:["omeprazole","esomeprazole","pantoprazole","rabeprazole","lansoprazole","ranitidine","famotidine","seclo","losectil","sergel","maxpro","nexum","pantonix","finix","antacid"],
+  sleep:["zolpidem","clonazepam","diazepam","lorazepam","alprazolam","bromazepam","melatonin","rivotril","disopan","sedil","clonatril"],
+  thyroid:["levothyroxine","thyroxine","thyrox","eltroxin"],
+  diabetes:["metformin","gliclazide","glimepiride","sitagliptin","linagliptin","vildagliptin","empagliflozin","dapagliflozin","insulin","comet"],
+  bp:["amlodipine","losartan","bisoprolol","atenolol","olmesartan","telmisartan","valsartan","camlodin","osartil","bisocor"],
+  antibiotic:["amoxicillin","azithromycin","cefixime","ciprofloxacin","doxycycline","cefuroxime","flucloxacillin","metronidazole","levofloxacin","moxifloxacin","zimax","ciprocin"],
+  para:["paracetamol","acetaminophen","napa","ace"],
+  vitamin:["calcium","vitamin","folic","iron","zinc","calbo","neuro-b"]
+};
+function detectCat(name){
+  const n = (name || "").toLowerCase();
+  for (const [cat, words] of Object.entries(KEYWORDS)) for (const w of words){
+    if (w.length <= 4 ? new RegExp(`(^|[^a-z])${w}([^a-z]|$)`).test(n) : n.includes(w)) return cat;
+  }
+  return "other";
+}
+function detectForm(name){
+  const n = (name || "").toLowerCase();
+  if (/insulin/.test(n)) return "insulin";
+  if (/syrup|suspension|susp|সিরাপ/.test(n)) return "syrup";
+  if (/drop|e\/d|ড্রপ/.test(n)) return "drop";
+  if (/cream|ointment|oint|gel|paste|lotion|মলম|ক্রিম/.test(n)) return "cream";
+  if (/inhaler|evohaler|rotacap|ইনহেলার/.test(n)) return "inhaler";
+  if (/spray|স্প্রে/.test(n)) return "spray";
+  if (/cap\b|capsule|ক্যাপসুল/.test(n)) return "capsule";
+  if (/sachet|powder|ors/.test(n)) return "powder";
+  if (/inj|injection/.test(n)) return "inj";
+  if (/supp/.test(n)) return "supp";
+  return null;
+}
+
+/* ============ Profiles & schedule ============ */
+const prof = id => S.profiles.find(p => p.id === id);
+const mealsOf = pid => Object.assign({}, MEALS0, (prof(pid) || {}).meals || {});
+const relName = r => { const x = RELS.find(k => k[0] === r); return x ? T(x[1], x[2]) : ""; };
+function mealTime(slot, m){
+  const meals = mealsOf(m.profile), base = toMin(meals[slot] || "08:00");
+  if (slot === "bed") return fromMin(base - 15);
+  if (m.food === "before") return fromMin(base - (+m.offset || 30));
+  if (m.food === "after") return fromMin(base + (+m.offset || 0));
+  if (m.food === "empty") return fromMin(base - 60);
+  return fromMin(base);
+}
+function retime(m){
+  if (m.mode === "meal") m.times = m.times.map(x => x.custom ? x : {...x, t: mealTime(x.slot, m)});
+  if (m.mode === "interval") m.times = intervalTimes(m);
+  m.times.sort((a, b) => toMin(a.t) - toMin(b.t));
+}
+function intervalTimes(m){
+  const n = Math.max(1, Math.floor(24 / (+m.every || 8))), first = toMin(m.first || "08:00"), amt = (m.times[0] || {}).amt || 1, out = [];
+  for (let i = 0; i < n; i++) out.push({t: fromMin(first + i * (+m.every || 8) * 60), amt, slot:"i"});
+  return out;
+}
+function activeOn(m, ds){
+  if (m.paused || m.mode === "sos") return false;
+  if (m.start && ds < m.start) return false;
+  if (m.end && ds > m.end) return false;
+  if (m.freq === "alt"){ const diff = Math.round((new Date(ds + "T00:00") - new Date((m.start || ds) + "T00:00")) / 864e5); if (diff % 2) return false; }
+  if (m.freq === "week"){ if (!(m.weekdays || []).includes(new Date(ds + "T00:00").getDay())) return false; }
+  return true;
+}
+function dosesFor(date, filter){
+  const ds = dkey(date), out = [];
+  for (const m of S.meds){
+    if (filter && filter !== "all" && m.profile !== filter) continue;
+    if (!activeOn(m, ds)) continue;
+    for (const x of m.times){
+      if (m.createdAt && ds === dkey(new Date(m.createdAt))){ const c = new Date(m.createdAt); if (toMin(x.t) < c.getHours()*60 + c.getMinutes() - 120) continue; }
+      out.push({id:`${ds}|${m.id}|${x.t}`, date:ds, t:x.t, amt:x.amt, med:m});
+    }
+  }
+  return out.sort(doseOrder);
+}
+function doseOrder(a, b){ return toMin(a.t) - toMin(b.t) || (b.med.cat === "gastric") - (a.med.cat === "gastric"); }
+function statusOf(d){
+  const l = S.log[d.id]; if (l) return l.s;
+  if (d.date < dkey(new Date())) return "missed";
+  const diff = nowMin() - toMin(d.t);
+  return diff < 0 ? "up" : diff <= 120 ? "due" : "missed";
+}
+function amtText(amt, m){
+  const f = formOf(m);
+  if (f.noAmt) return T("Apply", "লাগান");
+  const a = +amt, n = a === 0.5 ? T("½","আধা") : a === 1.5 ? T("1½","দেড়") : num(a);
+  if (S.lang === "bn") return f.ubn === "টি" ? (a === 0.5 ? `আধা ${f.bn}` : `${n}টি ${f.bn}`) : `${n} ${f.ubn}`;
+  return `${n} ${f.uen}${a > 1 ? "s" : ""}`;
+}
+function foodText(m){
+  if (!m.food || m.food === "any") return "";
+  if (m.food === "before") return T(`${durText(+m.offset || 30)} before food`, `খাওয়ার ${durText(+m.offset || 30)} আগে`);
+  if (m.food === "after") return +m.offset ? T(`${durText(+m.offset)} after food`, `খাওয়ার ${durText(+m.offset)} পরে`) : T("right after food","খাওয়ার পরপরই");
+  return T(FOOD[m.food][0], FOOD[m.food][1]);
+}
+function freqText(m){
+  if (m.mode === "sos") return T("Only when needed","শুধু প্রয়োজন হলে");
+  if (m.freq === "alt") return T("Every other day","একদিন পর পর");
+  if (m.freq === "week"){ const names = (m.weekdays || []).map(i => new Date(2024, 0, 7 + i).toLocaleDateString(S.lang === "bn" ? "bn-BD" : "en-GB", {weekday:"short"})); return T("On ","প্রতি ") + names.join(", "); }
+  return T("Every day","প্রতিদিন");
+}
+const daysTotal = m => m.end ? Math.round((new Date(m.end + "T00:00") - new Date((m.start || m.end) + "T00:00")) / 864e5) + 1 : null;
+const daysLeft = m => m.end ? Math.round((new Date(m.end + "T00:00") - new Date(dkey(new Date()) + "T00:00")) / 864e5) + 1 : null;
+function durationText(m){
+  const left = daysLeft(m), tot = daysTotal(m);
+  if (left == null) return T("Continues (no end date)","চলবে (শেষ তারিখ নেই)");
+  if (left <= 0) return T("Course finished","কোর্স শেষ");
+  if (left === 1) return T(`Last day today (${tot}-day course)`, `আজ শেষ দিন (${num(tot)} দিনের কোর্স)`);
+  return T(`${tot}-day course · ${left} days left · until ${dateLabel(m.end)}`, `${num(tot)} দিনের কোর্স · আর ${num(left)} দিন · ${dateLabel(m.end)} পর্যন্ত`);
+}
+function whenText(m){
+  if (m.mode === "sos") return T(`When needed${m.sosMax ? `, at most ${m.sosMax} times a day` : ""}`, `প্রয়োজন হলে${m.sosMax ? `, দিনে সর্বোচ্চ ${num(m.sosMax)} বার` : ""}`);
+  const ts = m.times.map(x => `${fmtTime(x.t)} (${amtText(x.amt, m)})`).join(", ");
+  if (m.mode === "interval") return T(`Every ${m.every} hours: `, `প্রতি ${num(m.every)} ঘণ্টা পর পর: `) + ts;
+  return ts;
+}
+function dailyUse(m){ return formOf(m).count && m.mode !== "sos" ? m.times.reduce((a, x) => a + (+x.amt || 0), 0) * (m.freq === "alt" ? .5 : m.freq === "week" ? (m.weekdays || []).length / 7 : 1) : 0; }
+
+/* ============ Safety checks ============ */
+function rulesFor(m, list){
+  const W = [], others = list.filter(x => x.id !== m.id && x.profile === m.profile && !x.paused);
+  const has = c => others.some(x => x.cat === c);
+  const times = m.mode === "sos" ? [] : (m.times || []).map(x => x.t);
+  const dis = (prof(m.profile) || {}).diseases || [];
+  const nm = esc(m.name || T("This medicine","এই ওষুধ"));
+  const oral = ["tablet","capsule","syrup","powder"].includes(m.form);
+  if (m.cat === "sleep"){
+    const day = times.filter(t => { const h = +t.split(":")[0]; return h >= 5 && h < 18; });
+    if (day.length) W.push(["danger", T(`Sleeping pills are taken at night, not in the morning or daytime (${day.map(fmtTime).join(", ")}). In the day they cause drowsiness, falls and accidents.`, `ঘুমের ওষুধ রাতে খেতে হয়, সকালে বা দিনে নয় (${day.map(fmtTime).join(", ")})। দিনে খেলে ঝিমুনি আসে, পড়ে যাওয়া বা দুর্ঘটনার ঝুঁকি থাকে।`)]);
+    if (has("sleep")) W.push(["danger", T("Another sleeping pill is already added. Two together can be dangerous.","আরেকটি ঘুমের ওষুধ আগে থেকেই আছে। দুটো একসাথে খাওয়া বিপজ্জনক হতে পারে।")]);
+  }
+  if (m.cat === "nsaid" && oral){
+    if (!has("gastric")) W.push(["warn", T(`${nm} is a painkiller that can hurt the stomach. Doctors usually give a gastric medicine (like omeprazole / Seclo) to take before it. Ask your doctor if you need one.`, `${nm} একটি ব্যথানাশক, যা পাকস্থলীর ক্ষতি করতে পারে। ডাক্তার সাধারণত এর আগে একটি গ্যাস্ট্রিকের ওষুধ (যেমন ওমিপ্রাজল / সেকলো) দেন। লাগবে কিনা ডাক্তারকে জিজ্ঞেস করুন।`)]);
+    else W.push(["info", T("At alarm time the app will check that the gastric medicine was taken first.","অ্যালার্মের সময় অ্যাপ জিজ্ঞেস করবে আগে গ্যাস্ট্রিকের ওষুধ খেয়েছেন কিনা।")]);
+    if (m.food === "before" || m.food === "empty") W.push(["warn", T("Painkillers like this are normally taken after food, not on an empty stomach.","এ ধরনের ব্যথানাশক সাধারণত খাওয়ার পরে খেতে হয়, খালি পেটে নয়।")]);
+    if (dis.includes("kidney")) W.push(["danger", T("Kidney disease is marked. NSAID painkillers can harm the kidneys. Confirm with your doctor first.","কিডনি রোগ চিহ্নিত আছে। NSAID ব্যথানাশক কিডনির ক্ষতি করতে পারে। আগে ডাক্তারের সাথে নিশ্চিত হোন।")]);
+    if (dis.includes("gastric") && !has("gastric")) W.push(["danger", T("Gastric/ulcer problem is marked and no gastric medicine is added. This painkiller may cause stomach bleeding.","গ্যাস্ট্রিক/আলসার চিহ্নিত আছে কিন্তু কোনো গ্যাস্ট্রিকের ওষুধ নেই। এই ব্যথানাশকে পাকস্থলীতে রক্তক্ষরণ হতে পারে।")]);
+    if (dis.includes("preg")) W.push(["danger", T("Pregnancy is marked. Many painkillers are not safe in pregnancy. Ask your doctor.","গর্ভাবস্থা চিহ্নিত আছে। অনেক ব্যথানাশক গর্ভাবস্থায় নিরাপদ নয়। ডাক্তারকে জিজ্ঞেস করুন।")]);
+    if (others.some(x => x.cat === "nsaid" && ["tablet","capsule","syrup","powder"].includes(x.form))) W.push(["danger", T("Another NSAID painkiller is already added. Two together raise stomach and kidney risk.","আরেকটি NSAID ব্যথানাশক আগে থেকেই আছে। দুটো একসাথে খেলে পাকস্থলী ও কিডনির ঝুঁকি বাড়ে।")]);
+  }
+  if (m.cat === "gastric" && oral && (m.food === "after" || m.food === "with")) W.push(["warn", T("Gastric medicines like omeprazole work best 20–30 minutes before food.","ওমিপ্রাজল জাতীয় গ্যাস্ট্রিকের ওষুধ খাওয়ার ২০–৩০ মিনিট আগে খেলে ভালো কাজ করে।")]);
+  if (m.cat === "thyroid"){
+    if (!["before","empty"].includes(m.food)) W.push(["warn", T("Thyroid tablets are taken on an empty stomach, 30–60 minutes before breakfast.","থাইরয়েডের ওষুধ খালি পেটে, নাস্তার ৩০–৬০ মিনিট আগে খেতে হয়।")]);
+    if (times.some(t => +t.split(":")[0] >= 11)) W.push(["warn", T("Thyroid medicine is usually taken early in the morning.","থাইরয়েডের ওষুধ সাধারণত ভোরে খাওয়া হয়।")]);
+  }
+  if (m.cat === "diabetes" && /metformin|comet/i.test(m.name || "") && (m.food === "before" || m.food === "empty")) W.push(["warn", T("Metformin is usually taken with or after food to avoid stomach upset.","পেটের সমস্যা এড়াতে মেটফরমিন সাধারণত খাবারের সাথে বা পরে খাওয়া হয়।")]);
+  if (m.form === "insulin" && m.food === "any") W.push(["warn", T("Insulin timing is usually tied to meals. Follow the time your doctor gave.","ইনসুলিনের সময় সাধারণত খাবারের সাথে মিলিয়ে হয়। ডাক্তার যে সময় বলেছেন সেটাই মানুন।")]);
+  if (m.cat === "para"){
+    if (has("para")) W.push(["danger", T("Another paracetamol medicine is already added. Taking both can overdose the liver.","আরেকটি প্যারাসিটামল আগে থেকেই আছে। দুটো খেলে লিভারের ক্ষতি (ওভারডোজ) হতে পারে।")]);
+    if (times.length > 4 || (m.mode === "sos" && +m.sosMax > 4)) W.push(["danger", T("Paracetamol should not be taken more than 4 times a day.","প্যারাসিটামল দিনে ৪ বারের বেশি খাওয়া যাবে না।")]);
+    if (m.mode === "interval" && +m.every < 4) W.push(["danger", T("Keep at least 4 hours between paracetamol doses.","প্যারাসিটামলের দুই ডোজের মাঝে অন্তত ৪ ঘণ্টা রাখুন।")]);
+    if (dis.includes("liver")) W.push(["warn", T("Liver disease is marked. Ask your doctor about the safe paracetamol dose.","লিভারের রোগ চিহ্নিত আছে। প্যারাসিটামলের নিরাপদ মাত্রা ডাক্তারের কাছে জেনে নিন।")]);
+  }
+  if (m.form === "drop" && /eye/.test(m.site || "") && others.some(x => x.form === "drop" && /eye/.test(x.site || "") && x.times.some(y => times.includes(y.t))))
+    W.push(["info", T("Two eye drops at the same time: wait at least 5 minutes between them. The alarm will remind you.","একই সময়ে দুটি চোখের ড্রপ: মাঝে অন্তত ৫ মিনিট অপেক্ষা করুন। অ্যালার্মও মনে করিয়ে দেবে।")]);
+  if (m.name && others.some(x => x.name.trim().toLowerCase() === m.name.trim().toLowerCase())) W.push(["danger", T("This medicine is already in the list for this person. Don't take it twice.","এই ব্যক্তির তালিকায় ওষুধটি আগে থেকেই আছে। দুইবার খাবেন না।")]);
+  if (m.mode === "interval"){
+    const ml = mealsOf(m.profile), bed = toMin(ml.bed), wake = toMin(ml.b) - 60;
+    const night = times.filter(t => { const x = toMin(t); return bed < wake ? (x > bed && x < wake) : (x > bed || x < wake); });
+    if (night.length) W.push(["info", T(`The alarm at ${night.map(fmtTime).join(", ")} falls during sleep. If the doctor did not ask you to wake up for it, choose "At fixed times" and pick times while awake.`, `${night.map(fmtTime).join(", ")}-এর অ্যালার্মটি ঘুমের সময়ে পড়ছে। ডাক্তার রাতে উঠে নিতে না বললে "নির্দিষ্ট সময়ে" বেছে জেগে থাকার সময়ে সময় দিন।`)]);
+  }
+  if (m.mode !== "sos" && !times.length) W.push(["warn", T("Choose at least one time for the alarm.","অ্যালার্মের জন্য অন্তত একটি সময় বাছাই করুন।")]);
+  return W;
+}
+
+/* ============ Storage ============ */
+let docRef = null, writing = false, pendingWrite = false, saveTimer = null;
+function migrate(){
+  if (S.v === 2){
+    S.profiles = S.profiles || []; S.voice = Object.assign({}, DEFAULT.voice, S.voice || {});
+    return;
+  }
+  // From the first version: one patient + optional family members
+  const old = S, me = {id:uid(), name: old.patient || "", rel:"me", diseases: old.diseases || [], custom: old.customDiseases || [], meals: Object.assign({}, MEALS0, old.meals || {})};
+  const profiles = [me];
+  (old.people || []).forEach(p => profiles.push({id:p.id, name:p.name, rel:"other", diseases:[], custom:[], meals:{...me.meals}}));
+  const meds = (old.meds || []).map(m => ({...m, profile: m.person || me.id, form: m.form || ({capsule:"capsule", spoon:"syrup", ml:"syrup", drop:"drop", puff:"inhaler", inj:"inj"}[m.unit] || "tablet"), mode:"clock", offset: m.food === "before" ? 30 : 0, freq:"daily", times:(m.times || []).map(x => ({t:x.t, amt:x.amt, slot:"c", custom:true}))}));
+  S = Object.assign(structuredClone(DEFAULT), {lang: old.lang || "bn", profiles, meds, log: old.log || {}, voice: Object.assign({}, DEFAULT.voice, old.voice || {}), bigMode: !!old.parent, setupDone: !!old.onboarded && meds.length > 0, updatedAt: old.updatedAt || 0});
+}
+function loadLocal(){
+  try { const s = localStorage.getItem("medclock"); if (s) S = Object.assign(structuredClone(DEFAULT), JSON.parse(s)); } catch(e){}
+  try { const p = localStorage.getItem("medclock_photos"); if (p) P = JSON.parse(p); } catch(e){}
+  try { const a = localStorage.getItem("medclock_audio"); if (a) A = JSON.parse(a); } catch(e){}
+  migrate();
+}
+function save(){
+  S.updatedAt = Date.now();
+  const cut = dkey(new Date(Date.now() - 35*864e5));
+  for (const k of Object.keys(S.log)) if (k.slice(0,10) < cut) delete S.log[k];
+  try { localStorage.setItem("medclock", JSON.stringify(S)); } catch(e){}
+  clearTimeout(saveTimer); saveTimer = setTimeout(() => { pushDb(); pushSchedule(); }, 900);
+}
+async function pushDb(){
+  if (!docRef) return;
+  if (writing){ pendingWrite = true; return; }
+  writing = true;
+  try { await docRef.set(JSON.parse(JSON.stringify(S))); } catch(e){ if (e && e.code === "invalid_argument") docRef = null; }
+  writing = false;
+  if (pendingWrite){ pendingWrite = false; pushDb(); }
+}
+function saveLocalMap(key, obj){ try { localStorage.setItem(key, JSON.stringify(obj)); } catch(e){} }
+async function putBlob(kind, id, url){
+  (kind === "photos" ? P : A)[id] = url; saveLocalMap(kind === "photos" ? "medclock_photos" : "medclock_audio", kind === "photos" ? P : A);
+  if (docRef && url.length < 240000) try { await docRef.collection(kind).doc(id).set({url}); } catch(e){}
+}
+async function dropBlob(kind, id){
+  const map = kind === "photos" ? P : A; if (!map[id]) return;
+  delete map[id]; saveLocalMap(kind === "photos" ? "medclock_photos" : "medclock_audio", map);
+  if (docRef) try { await docRef.collection(kind).doc(id).delete(); } catch(e){}
+}
+async function initCloud(){
+  if (!window.claude || !window.claude.use) return;
+  try {
+    const user = await claude.use("user"), id = user ? await user.id() : null, db = await claude.use("db");
+    if (!db || !id) return;
+    docRef = db.doc(`data/users/${id}/app`);
+    const snap = await Promise.race([docRef.get(), new Promise(r => setTimeout(() => r(null), 10000))]);
+    if (snap && snap.exists){
+      const remote = snap.data();
+      if ((remote.updatedAt || 0) > (S.updatedAt || 0)){
+        S = Object.assign(structuredClone(DEFAULT), JSON.parse(JSON.stringify(remote))); migrate();
+        try { localStorage.setItem("medclock", JSON.stringify(S)); } catch(e){}
+        for (const kind of ["photos","audio"]){ try { const qs = await docRef.collection(kind).get(); qs.docs.forEach(d => { (kind === "photos" ? P : A)[d.id] = d.data().url; }); } catch(e){} }
+        saveLocalMap("medclock_photos", P); saveLocalMap("medclock_audio", A);
+        if (S.setupDone && ["welcome","setup"].includes(view)) view = "home";
+        render();
+      } else if ((S.updatedAt || 0) > (remote.updatedAt || 0)) pushDb();
+    } else if (S.setupDone){ pushDb(); for (const [k, u] of Object.entries(P)) putBlob("photos", k, u); for (const [k, u] of Object.entries(A)) putBlob("audio", k, u); }
+  } catch(e){ docRef = null; }
+}
+
+/* ============ Sound & speech ============ */
+let AC = null, beepTimer = null, speakTimer = null, speakCount = 0, TTS = null, SAMPLE = null, speakToken = 0;
+function unlockAudio(){
+  try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch(e){}
+  try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } catch(e){}
+  setTimeout(renderUnlock, 300);
+}
+function beepOnce(){
+  if (!AC) return;
+  const t0 = AC.currentTime;
+  [[988,0],[784,.18],[988,.36],[784,.54]].forEach(([f, dt]) => {
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = "square"; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t0+dt); g.gain.exponentialRampToValueAtTime(0.55, t0+dt+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0+dt+0.16);
+    o.connect(g).connect(AC.destination); o.start(t0+dt); o.stop(t0+dt+0.17);
+  });
+  try { navigator.vibrate && navigator.vibrate([400,150,400]); } catch(e){}
+}
+function startRinging(){ stopRinging(); beepOnce(); beepTimer = setInterval(beepOnce, 1300); }
+function stopRinging(){ speakToken++; try { NAT && NAT.stopSpeak(); } catch(e){} clearInterval(beepTimer); beepTimer = null; clearInterval(speakTimer); speakTimer = null; try { speechSynthesis.cancel(); } catch(e){} try { TTS && TTS.stop(); } catch(e){} }
+const voices = () => { try { return speechSynthesis.getVoices(); } catch(e){ return []; } };
+function pickVoice(lang){
+  const vs = voices();
+  if (S.voice.name){ const v = vs.find(x => x.name === S.voice.name); if (v) return v; }
+  const same = vs.filter(v => (v.lang || "").toLowerCase().replace("_","-").startsWith(lang));
+  return same.find(v => /bn-BD/i.test(v.lang) && /google/i.test(v.name)) || same.find(v => /google/i.test(v.name)) || same.find(v => /bn-BD/i.test(v.lang)) || same[0] || null;
+}
+const BN_WORDS = ["শূন্য","এক","দুই","তিন","চার","পাঁচ","ছয়","সাত","আট","নয়","দশ","এগারো","বারো","তেরো","চোদ্দো","পনেরো","ষোলো","সতেরো","আঠারো","উনিশ","বিশ"];
+const BN_ORD = ["প্রথম","দ্বিতীয়","তৃতীয়","চতুর্থ","পঞ্চম","ষষ্ঠ","সপ্তম","অষ্টম","নবম","দশম"];
+function bnNum(a){ a = +a; if (a === 0.5) return "আধা"; if (a === 1.5) return "দেড়"; if (a === 2.5) return "আড়াই"; return Number.isInteger(a) && a <= 20 ? BN_WORDS[a] : String(a); }
+function sayName(m){
+  if (S.lang === "bn" && m.name_bn) return m.name_bn;
+  return String(m.name || "").replace(/\(.*?\)/g, "").replace(/(\d+(\.\d+)?)\s*(mg|mcg|ml|gm|g|%|iu)\b/gi, "").replace(/\s+/g, " ").trim();
+}
+function doseLines(d){
+  const m = d.med, f = formOf(m), out = [], bn = S.lang === "bn", site = siteName(m);
+  out.push(sayName(m) + (bn ? "।" : "."));
+  if (bn){
+    if (f.noAmt) out.push(`${site ? site + " " : ""}লাগান।`);
+    else if (m.form === "drop") out.push(`${site ? site + " " : ""}${bnNum(d.amt)} ফোঁটা করে।`);
+    else if (["tablet","capsule","inj","supp"].includes(m.form)) out.push(`${bnNum(d.amt)}টি ${f.say}।`);
+    else out.push(`${site ? site + " " : ""}${bnNum(d.amt)} ${f.say}।`);
+    const ft = foodText(m); if (ft) out.push(ft + "।");
+    if (m.form === "syrup") out.push("বোতল ঝাঁকিয়ে নিন।");
+    const verb = ["tablet","capsule","syrup","powder"].includes(m.form) ? "খেতে" : m.form === "cream" ? "লাগাতে" : "দিতে";
+    const left = daysLeft(m); if (left === 1) out.push("আজ এই ওষুধের শেষ দিন।"); else if (left > 1 && left <= 20) out.push(`আর ${BN_WORDS[left]} দিন ${verb} হবে।`);
+  } else {
+    out.push(f.noAmt ? `Apply ${site ? "on " + site : ""}.` : `${site ? site + ", " : ""}${d.amt} ${f.uen}${+d.amt > 1 ? "s" : ""}.`);
+    const ft = foodText(m); if (ft) out.push(ft + ".");
+    const left = daysLeft(m); if (left === 1) out.push("Today is the last day."); else if (left > 1) out.push(`${left} more days.`);
+  }
+  if (m.note) out.push(m.note);
+  return out;
+}
+function speakParts(parts){
+  const my = ++speakToken, resume = !!beepTimer, lang = S.lang === "bn" ? "bn" : "en", v = pickVoice(lang);
+  clearInterval(beepTimer); beepTimer = null;
+  const synth = text => new Promise(res => {
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      if (v){ u.voice = v; u.lang = v.lang; } else u.lang = lang === "bn" ? "bn-BD" : "en-US";
+      u.rate = S.voice.rate; u.volume = 1;
+      const t = setTimeout(res, 12000); u.onend = u.onerror = () => { clearTimeout(t); res(); };
+      speechSynthesis.speak(u);
+    } catch(e){ res(); }
+  });
+  const native = text => new Promise(res => { const id = "s" + (++ttsSeq); ttsWait[id] = res; try { NAT.speak(id, text, lang, S.voice.rate); } catch(e){ delete ttsWait[id]; res(); } setTimeout(() => { if (ttsWait[id]){ delete ttsWait[id]; res(); } }, 15000); });
+  const sayOne = text => NAT ? native(text) : TTS ? TTS.speak(text, {language: lang, rate: S.voice.rate}).catch(() => synth(text)) : synth(text);
+  if (!NAT && !TTS && !warnedSilent && (!("speechSynthesis" in window) || !voices().length)){ warnedSilent = true; toast(T("This page can't speak here. Install the Android app (APK) for the spoken alarm.","এখানে পেজটি কথা বলতে পারে না। কথা বলা অ্যালার্মের জন্য Android অ্যাপ (APK) ইনস্টল করুন।")); }
+  const play = url => new Promise(res => { try { const a = new Audio(url); a.onended = a.onerror = res; a.play().catch(res); setTimeout(res, 30000); } catch(e){ res(); } });
+  (async () => {
+    try { speechSynthesis.cancel(); } catch(e){}
+    for (const p of parts){
+      if (my !== speakToken) return;
+      if (p.audio) await play(p.audio); else if (p.text) await sayOne(p.text);
+      await new Promise(r => setTimeout(r, 380));
+    }
+    if (my === speakToken && resume && !document.getElementById("alarm").classList.contains("hidden")) beepTimer = setInterval(beepOnce, 1300);
+  })();
+}
+function alarmParts(group, first){
+  const bn = S.lang === "bn", p = prof(group[0].med.profile), n = group.length, parts = [];
+  const who = p && p.name ? p.name : "";
+  parts.push({text: bn ? `${who ? who + ", " : ""}ওষুধের সময় হয়েছে।` : `${who ? who + ", " : ""}it is medicine time.`});
+  if (n > 1) parts.push({text: bn ? `এখন মোট ${BN_WORDS[n] || n}টি ওষুধ।` : `${n} medicines now.`});
+  if (first) parts.push({text: bn ? first.bn : first.en});
+  group.forEach((d, i) => {
+    if (n > 1) parts.push({text: bn ? `${BN_ORD[i] || (i + 1)} ওষুধ:` : `Number ${i + 1}:`});
+    if (A[d.med.id]) parts.push({audio: A[d.med.id], mid: d.med.id}); else doseLines(d).forEach(text => parts.push({text}));
+  });
+  if (group.filter(d => d.med.form === "drop" && /eye/.test(d.med.site || "")).length > 1) parts.push({text: bn ? "দুটি চোখের ড্রপের মাঝে অন্তত পাঁচ মিনিট অপেক্ষা করুন।" : "Wait at least five minutes between eye drops."});
+  return parts;
+}
+
+/* ============ Alarm engine ============ */
+let alarmGroup = null, snooze = {}, fired = new Set();
+function checkAlarms(){
+  if (alarmGroup || NAT) return;   // in the APK the phone itself rings the alarm
+  const now = Date.now();
+  const due = dosesFor(new Date()).filter(d => {
+    if (S.log[d.id]) return false;
+    const diff = nowMin() - toMin(d.t);
+    if (diff < 0 || diff > 120) return false;
+    if (snooze[d.id]) return now >= snooze[d.id];
+    return !fired.has(d.id);
+  });
+  if (!due.length) return;
+  const pid = due[0].med.profile;
+  openAlarm(due.filter(d => d.med.profile === pid));
+}
+function gastricFirst(group, day){
+  if (!group.some(d => d.med.cat === "nsaid" && ["tablet","capsule","syrup","powder"].includes(d.med.form))) return null;
+  const g = group.find(d => d.med.cat === "gastric");
+  if (g) return {bn:`প্রথমে ${sayName(g.med)} খান, তারপর ব্যথার ওষুধ।`, en:`First take ${sayName(g.med)}, then the painkiller.`};
+  const pid = group[0].med.profile;
+  const earlier = dosesFor(day || new Date(), pid).find(d => d.med.cat === "gastric" && toMin(d.t) <= toMin(group[0].t) && toMin(group[0].t) - toMin(d.t) <= 120 && !S.log[d.id]);
+  if (earlier) return {bn:`আগে ${sayName(earlier.med)} খেয়েছেন? গ্যাস্ট্রিকের ওষুধ না খেলে প্রথমে সেটা খান।`, en:`Did you take ${sayName(earlier.med)} first? If not, take the gastric medicine before the painkiller.`, id:earlier.id};
+  return null;
+}
+function openAlarm(group){
+  group.sort(doseOrder);
+  alarmGroup = group; group.forEach(d => fired.add(d.id));
+  const first = gastricFirst(group), p = prof(group[0].med.profile), n = group.length, el = document.getElementById("alarm");
+  el.innerHTML = `
+    <svg class="ring" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 8a4 4 0 0 1 4 4v1.5A17 17 0 0 1 49 30v11l5 6v2H10v-2l5-6V30a17 17 0 0 1 13-16.5V12a4 4 0 0 1 4-4z" fill="#fff"/><path d="M26 52a6 6 0 0 0 12 0z" fill="#fff"/></svg>
+    <h2>${p && p.name ? esc(p.name) + ", " : ""}${T("medicine time!","ওষুধের সময়!")}</h2>
+    <div class="clock">${fmtTime(group[0].t)}</div>
+    <div class="count">${T(`${n} medicine${n > 1 ? "s" : ""} now`, `এখন ${num(n)}টি ওষুধ`)}</div>
+    ${first ? `<div class="first" style="margin-top:12px">${esc(S.lang === "bn" ? first.bn : first.en)}${first.id ? `<button class="btn full" style="background:var(--alert);color:#fff;font-size:17px;padding:12px;margin-top:8px" data-act="al-first" data-id="${first.id}">${T("Gastric medicine taken","গ্যাস্ট্রিকের ওষুধ খেয়েছি")}</button>` : ""}</div>` : ""}
+    <div class="list">${group.map((d, i) => `
+      <div class="am">${n > 1 ? `<div class="no">${num(i + 1)}</div>` : ""}${P[d.med.id] ? `<img src="${P[d.med.id]}" alt="">` : formIcon(d.med.form, true)}
+        <div class="grow"><div class="nm">${esc(d.med.name)}</div>
+        <div class="meta"><b>${esc(amtText(d.amt, d.med))}</b>${siteName(d.med) ? " · " + esc(siteName(d.med)) : ""}${foodText(d.med) ? " · " + foodText(d.med) : ""}</div>
+        <div class="meta" style="opacity:.85">${durationText(d.med)}</div>
+        ${d.med.note ? `<div class="meta" style="opacity:.85">${esc(d.med.note)}</div>` : ""}</div></div>`).join("")}</div>
+    <div class="acts">
+      <button class="btn" data-act="al-taken">${n > 1 ? T("Took all","সবগুলো নিয়েছি") : T("Took it","নিয়েছি")} ✓</button>
+      <button class="btn ghost" data-act="al-speak">${T("Say it again","আবার শুনুন")}</button>
+      <div class="row" style="gap:10px;flex-wrap:nowrap"><button class="btn ghost" style="flex:1" data-act="al-snooze">${T("In 10 min","১০ মিনিট পরে")}</button><button class="btn ghost" style="flex:1" data-act="al-skip">${T("Skip","বাদ দিন")}</button></div>
+    </div>`;
+  el.classList.remove("hidden"); el.scrollTop = 0;
+  startRinging();
+  const parts = alarmParts(group, first);
+  speakCount = 0;
+  setTimeout(() => speakParts(parts), 1400);
+  speakTimer = setInterval(() => { if (++speakCount >= 4){ clearInterval(speakTimer); return; } speakParts(parts); }, 35000);
+}
+function closeAlarm(){ stopRinging(); alarmGroup = null; document.getElementById("alarm").classList.add("hidden"); render(); setTimeout(checkAlarms, 800); }
+function markDose(id, s){
+  S.log[id] = {s, at:Date.now()};
+  const [, medId, t] = id.split("|"), m = S.meds.find(x => x.id === medId);
+  if (s === "taken" && m && formOf(m).count && m.stock !== "" && m.stock != null){
+    const x = m.times.find(y => y.t === t); m.stock = Math.max(0, +m.stock - (+(x ? x.amt : 1) || 1));
+  }
+  save();
+}
+
+
+/* ============ Android app (APK) bridge ============ */
+function eventFor(g, day, test){
+  g.sort(doseOrder);
+  const p = prof(g[0].med.profile), first = gastricFirst(g, day), n = g.length;
+  const [hh, mm] = g[0].t.split(":").map(Number), at = new Date(day); at.setHours(hh, mm, 0, 0);
+  return {
+    id: `${dkey(day)}|${g[0].med.profile}|${g[0].t}${test ? "|test" + Date.now() : ""}`, at: test ? Date.now() : at.getTime(), test: !!test,
+    keys: g.map(x => x.id),
+    title: `${p && p.name ? p.name + ", " : ""}${T("medicine time!","ওষুধের সময়!")}`,
+    time: fmtTime(g[0].t), count: T(`${n} medicine${n > 1 ? "s" : ""} now`, `এখন ${num(n)}টি ওষুধ`),
+    first: first ? (S.lang === "bn" ? first.bn : first.en) : "",
+    items: g.map(x => ({name: x.med.name, line: [amtText(x.amt, x.med), siteName(x.med), foodText(x.med)].filter(Boolean).join(" · "), sub: durationText(x.med), note: x.med.note || ""})),
+    parts: alarmParts(g, first).map(pt => pt.audio ? {a: pt.mid} : {t: pt.text}),
+    lang: S.lang === "bn" ? "bn" : "en", rate: S.voice.rate,
+    labels: {taken: n > 1 ? T("Took all ✓","সবগুলো নিয়েছি ✓") : T("Took it ✓","নিয়েছি ✓"), again: T("Say it again","আবার শুনুন"), snooze: T("In 10 min","১০ মিনিট পরে"), skip: T("Skip","বাদ দিন")}
+  };
+}
+function buildEvents(){
+  const out = [], now = Date.now();
+  for (let off = 0; off < 14; off++){
+    const day = new Date(); day.setHours(0, 0, 0, 0); day.setDate(day.getDate() + off);
+    const groups = {};
+    dosesFor(day).filter(x => !S.log[x.id]).forEach(x => { const k = x.med.profile + "|" + x.t; (groups[k] = groups[k] || []).push(x); });
+    for (const g of Object.values(groups)){
+      const e = eventFor(g, day);
+      if (e.at >= now - 30*60000) out.push(e);
+    }
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+function pushSchedule(){ if (!NAT) return; try { NAT.setSchedule(JSON.stringify(buildEvents())); } catch(e){} }
+function nativeStatus(){ if (!NAT) return null; try { return JSON.parse(NAT.status()); } catch(e){ return null; } }
+function nativeTts(){ if (!NAT) return null; try { return JSON.parse(NAT.ttsInfo()); } catch(e){ return null; } }
+function permBanner(full){
+  const st = nativeStatus(); if (!st) return "";
+  const items = [
+    ["notif", st.notif, T("Allow notifications","নোটিফিকেশনের অনুমতি দিন")],
+    ["exact", st.exact, T("Allow exact alarms","সঠিক সময়ে অ্যালার্মের অনুমতি দিন")],
+    ["fullscreen", st.fullscreen, T("Allow full-screen alarm","ফুল-স্ক্রিন অ্যালার্মের অনুমতি দিন")],
+    ["battery", st.battery, T("Don't restrict battery","ব্যাটারি সীমাবদ্ধতা বন্ধ করুন")]
+  ].filter(x => full || !x[1]);
+  const tts = nativeTts(), bnOk = !tts || tts.bn >= 0;
+  if (!items.length && bnOk) return "";
+  return `<div class="card col" style="border-color:var(--pill)"><b>${T("So the alarm always rings and speaks:","অ্যালার্ম যেন সবসময় বাজে ও কথা বলে:")}</b>
+    ${items.map(([k, ok, l]) => `<div class="row" style="flex-wrap:nowrap"><span class="grow">${ok ? "✓ " : ""}${l}</span>${ok ? "" : `<button class="iconbtn" data-act="nat-fix" data-k="${k}">${T("Allow","চালু করুন")}</button>`}</div>`).join("")}
+    ${S.lang === "bn" && !bnOk ? `<div class="row" style="flex-wrap:nowrap"><span class="grow">${T("Bangla voice is not installed. Open voice settings, choose Google, and download Bangla (Bangladesh).","বাংলা ভয়েস ইনস্টল নেই। ভয়েস সেটিংস খুলে Google বাছাই করুন, তারপর বাংলা (বাংলাদেশ) ডাউনলোড করুন।")}</span><button class="iconbtn" data-act="nat-tts">${T("Open","খুলুন")}</button></div>` : ""}
+  </div>`;
+}
+window.onNativeResume = () => {
+  if (!NAT) return;
+  try { JSON.parse(NAT.takeLogs() || "[]").forEach(l => { if (l.key && !S.log[l.key]) markDose(l.key, l.s); }); } catch(e){}
+  pushSchedule(); render();
+};
+window.onNativeBack = () => {
+  if (!document.getElementById("alarm").classList.contains("hidden")) return true;
+  if (view === "wiz" && wiz){ document.querySelector('[data-act="wz-back"]')?.click() || document.querySelector('[data-act="w-cancel"]')?.click(); return true; }
+  if (view === "setup" && setup && S.setupDone){ document.querySelector('[data-act="su-back"]')?.click(); return true; }
+  if (["meds","people","settings","add","scan"].includes(view)){ view = "home"; wiz = null; review = null; render(); return true; }
+  return false;
+};
+
+/* ============ Icons ============ */
+const FORM_SVG = {
+  tablet:'<circle cx="16" cy="16" r="11" fill="var(--pill)"/><path d="M8 16h16" stroke="currentColor" stroke-width="2"/>',
+  capsule:'<rect x="5" y="11" width="22" height="10" rx="5" fill="var(--pill)" transform="rotate(-35 16 16)"/><rect x="5" y="11" width="11" height="10" rx="5" fill="currentColor" transform="rotate(-35 16 16)"/>',
+  syrup:'<path d="M12 4h8v4l2 3v16a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V11l2-3z" fill="var(--pill)"/><rect x="11" y="15" width="10" height="7" rx="1" fill="currentColor"/>',
+  drop:'<path d="M16 4c5 7 8 11 8 15a8 8 0 0 1-16 0c0-4 3-8 8-15z" fill="currentColor"/><path d="M12 20a4 4 0 0 0 4 4" stroke="#fff" stroke-width="2" fill="none"/>',
+  cream:'<path d="M6 12h14l6 4-6 4H6z" fill="var(--pill)"/><rect x="4" y="12" width="4" height="8" rx="1" fill="currentColor"/><path d="M26 16h3" stroke="currentColor" stroke-width="2"/>',
+  inhaler:'<path d="M12 4h8v14h-8z" fill="var(--pill)"/><path d="M8 18h16v6H8z" fill="currentColor"/><path d="M8 24h6v4H8z" fill="currentColor"/>',
+  spray:'<rect x="10" y="12" width="12" height="16" rx="3" fill="var(--pill)"/><path d="M13 6h6v6h-6zM19 8h5" stroke="currentColor" stroke-width="2" fill="currentColor"/>',
+  insulin:'<rect x="6" y="13" width="18" height="6" rx="2" fill="var(--pill)"/><path d="M24 16h5M3 16h3" stroke="currentColor" stroke-width="2"/><rect x="9" y="13" width="5" height="6" fill="currentColor"/>',
+  inj:'<path d="M7 25l4-4M10 18l8-8 4 4-8 8zM18 10l2-2 4 4-2 2M22 6l4 4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M11 18l3 3 7-7-3-3z" fill="var(--pill)"/>',
+  powder:'<path d="M7 7h18l-2 18H9z" fill="var(--pill)"/><path d="M7 7l3-3h12l3 3" stroke="currentColor" stroke-width="2" fill="none"/>',
+  supp:'<path d="M10 24V14a6 6 0 0 1 12 0v10z" fill="var(--pill)"/><path d="M10 24h12" stroke="currentColor" stroke-width="2"/>'
+};
+const formIcon = (f, onDark) => `<div class="thumb" ${onDark ? 'style="background:rgba(255,255,255,.25);color:#fff"' : ""}><svg viewBox="0 0 32 32" aria-hidden="true">${FORM_SVG[f] || FORM_SVG.tablet}</svg></div>`;
+const medThumb = m => P[m.id] ? `<img class="thumb" src="${P[m.id]}" alt="">` : formIcon(m.form);
+const ICON = {
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M5 3 2 6M19 3l3 3"/></svg>',
+  meds:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="9" width="18" height="7" rx="3.5" transform="rotate(-35 12 12.5)"/><path d="M9.2 8.3l4.1 5.9"/></svg>',
+  people:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14a5 5 0 0 1 6 5"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>',
+  warn:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg>',
+  info:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+  cam:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  rx:'<svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M9 9h3a2 2 0 0 1 0 4H9V9zm0 4v4m3-4 4 4"/></svg>',
+  pen:'<svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>',
+  speaker:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>',
+  check:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg>'
+};
+const banner = (lvl, html) => `<div class="banner ${lvl}">${lvl === "info" ? ICON.info : ICON.warn}<div>${html}</div></div>`;
+
+/* ============ Rendering ============ */
+function render(){
+  document.documentElement.lang = S.lang;
+  document.getElementById("appname").textContent = T("Medicine Clock","ওষুধের ঘড়ি");
+  document.getElementById("langbtn").textContent = S.lang === "bn" ? "English" : "বাংলা";
+  document.getElementById("today-date").textContent = new Date().toLocaleDateString(S.lang === "bn" ? "bn-BD" : "en-GB", {weekday:"long", day:"numeric", month:"long"});
+  if (!S.setupDone && !["welcome","setup","wiz","scan","add"].includes(view)) view = S.profiles.length ? "setup" : "welcome";
+  if (view === "setup" && !setup) setup = newSetup(true);
+  const fn = {welcome:vWelcome, setup:vSetup, home: S.bigMode ? vBig : vHome, meds:vMeds, people:vPeople, settings:vSettings, add:vAdd, wiz:vWiz, scan:vScan}[view] || vHome;
+  document.getElementById("main").innerHTML = fn();
+  const inFlow = ["welcome","setup","wiz","add","scan"].includes(view) || (view === "home" && S.bigMode);
+  document.getElementById("tabs").classList.toggle("hidden", inFlow);
+  const tabs = [["home",T("Today","আজ")],["meds",T("Medicines","ওষুধ")],["people",T("Family","পরিবার")],["settings",T("Settings","সেটিংস")]];
+  document.getElementById("tabs-in").innerHTML = tabs.map(([k, l]) => `<button data-act="go" data-v="${k}" ${view === k ? 'aria-current="page"' : ""}>${ICON[k]}${l}</button>`).join("");
+  renderNav();
+  renderUnlock();
+}
+function renderUnlock(){
+  const el = document.getElementById("unlock"), need = !NAT && S.setupDone && S.meds.length && !["wiz","setup","scan","add"].includes(view) && (!AC || AC.state !== "running");
+  el.classList.toggle("hidden", !need);
+  if (need) el.innerHTML = `<button class="btn pill full" data-act="unlock">${T("Tap once to switch on the alarm sound","অ্যালার্মের শব্দ চালু করতে একবার চাপুন")}</button>`;
+}
+function renderNav(){
+  const nav = document.getElementById("wiznav"), inn = document.getElementById("wiznav-in");
+  let html = "";
+  if (view === "setup" && setup){
+    const last = setup.step === 3;
+    html = setup.step < 3 ? `<button class="btn ghost" data-act="su-back">${setup.step === 0 && setup.first ? "" : "← "}${setup.step === 0 && !setup.first ? T("Cancel","বাতিল") : T("Back","পেছনে")}</button><button class="btn" data-act="su-next">${setup.step === 1 && !setup.p.diseases.length ? T("Skip","এড়িয়ে যান") : T("Next","পরের ধাপ")} →</button>` : "";
+    if (setup.step === 0 && setup.first) html = `<button class="btn" data-act="su-next">${T("Next","পরের ধাপ")} →</button>`;
+    if (last) html = "";
+  } else if (view === "wiz" && wiz){
+    html = wiz.step < 5 ? `<button class="btn ghost" data-act="wz-back">← ${wiz.step === 1 ? T("Cancel","বাতিল") : T("Back","পেছনে")}</button><button class="btn" data-act="wz-next">${T("Next","পরের ধাপ")} →</button>` : "";
+  }
+  nav.classList.toggle("hidden", !html);
+  inn.innerHTML = html;
+}
+const progress = (n, total, label) => `<div class="wiz-head"><div class="progress">${Array.from({length:total}, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</div><div class="stepno">${T(`Step ${n} of ${total}`, `ধাপ ${num(n)} / ${num(total)}`)}${label ? " · " + label : ""}</div></div>`;
+
+/* ---- Welcome ---- */
+function vWelcome(){
+  return `
+  <div class="card hero col" style="padding:22px">
+    <h2 style="font-size:30px">${T("Never miss a medicine again","আর কোনো ওষুধ ভুলবেন না")}</h2>
+    <p style="margin:0">${T("At the right time a loud alarm rings and the app says out loud how many medicines to take and which ones, how much, and before or after food.","ঠিক সময়ে জোরে অ্যালার্ম বাজবে, আর অ্যাপ মুখে বলে দেবে কয়টি ওষুধ, কোনগুলো, কতটুকু, খাওয়ার আগে না পরে।")}</p>
+  </div>
+  <div class="card col">
+    <h3>${T("Choose language","ভাষা বাছাই করুন")}</h3>
+    <div class="seg" role="group"><button data-act="setlang" data-l="bn" aria-pressed="${S.lang === "bn"}">বাংলা</button><button data-act="setlang" data-l="en" aria-pressed="${S.lang === "en"}">English</button></div>
+  </div>
+  <div class="card col small">
+    <div class="row" style="flex-wrap:nowrap">${ICON.check}<span>${T("For yourself, or for your father, mother or anyone in the family","নিজের জন্য, বা আব্বা-আম্মা, পরিবারের যে কারো জন্য")}</span></div>
+    <div class="row" style="flex-wrap:nowrap">${ICON.check}<span>${T("Take a photo of the prescription and the alarms are set for you","প্রেসক্রিপশনের ছবি দিলেই অ্যালার্ম সেট হয়ে যাবে")}</span></div>
+    <div class="row" style="flex-wrap:nowrap">${ICON.check}<span>${T("Tablets, syrup, eye/ear/nose drops, creams, inhalers, insulin","ট্যাবলেট, সিরাপ, চোখ/কান/নাকের ড্রপ, মলম, ইনহেলার, ইনসুলিন")}</span></div>
+    <div class="row" style="flex-wrap:nowrap">${ICON.check}<span>${T("Warns about wrong timing, like a sleeping pill in the morning","ভুল সময়ে সতর্ক করে, যেমন সকালে ঘুমের ওষুধ")}</span></div>
+  </div>
+  <button class="btn big full" data-act="start">${T("Start","শুরু করুন")} →</button>
+  <p class="small muted" style="margin:0;text-align:center">${T("This app reminds only. Always follow your doctor's prescription.","এই অ্যাপ শুধু মনে করিয়ে দেয়। সবসময় ডাক্তারের প্রেসক্রিপশন মেনে চলুন।")}</p>`;
+}
+
+/* ---- Person setup: who → diseases → routine → add medicines ---- */
+function newSetup(first, existing){
+  const p = existing ? structuredClone(existing) : {id:uid(), name:"", rel: S.profiles.some(x => x.rel === "me") ? "" : "me", diseases:[], custom:[], meals:{...MEALS0}};
+  return {step:0, first, editing:!!existing, p};
+}
+function vSetup(){
+  const s = setup, p = s.p, total = 3;
+  if (s.step === 0) return `${progress(1, total)}
+    <h2 style="font-size:26px">${T("Who are these reminders for?","কার জন্য ওষুধের রিমাইন্ডার দেবেন?")}</h2>
+    <div class="tiles three">${RELS.map(([k, en, bn]) => `<button class="tile" data-act="su-rel" data-k="${k}" aria-pressed="${p.rel === k}">${T(en, bn)}</button>`).join("")}</div>
+    ${p.rel ? `<label class="f">${p.rel === "me" ? T("Your name (the alarm will call you by it)","আপনার নাম (অ্যালার্ম এই নামে ডাকবে)") : T("What should the alarm call them?","অ্যালার্ম কী নামে ডাকবে?")}<input class="inp" id="su-name" value="${esc(p.name)}" placeholder="${p.rel === "me" ? T("e.g. Noyon","যেমন: নয়ন") : esc(relName(p.rel).split(" / ")[0])}"></label>
+    ${p.rel !== "me" ? banner("info", T("Set this up on the phone they use. The alarm rings on that phone.","যে ফোন উনি ব্যবহার করেন, সেই ফোনে সেট করুন। অ্যালার্ম সেই ফোনেই বাজবে।")) : ""}` : ""}`;
+  if (s.step === 1){
+    const all = [...DISEASES.map(d => d[0]), ...p.custom];
+    return `${progress(2, total)}
+    <h2 style="font-size:26px">${T(`Any diseases${p.name ? " for " + esc(p.name) : ""}?`, `${p.name ? esc(p.name) + "-এর " : ""}কোনো রোগ আছে?`)}</h2>
+    <p class="muted" style="margin:0">${T("Pick all that apply. This helps the app warn about unsafe medicines. You can skip this.","যতগুলো আছে সব বাছাই করুন। এতে অ্যাপ ঝুঁকিপূর্ণ ওষুধে সতর্ক করতে পারবে। চাইলে এড়িয়ে যেতে পারেন।")}</p>
+    <div class="chips">${all.map(k => `<button class="chip" data-act="su-dis" data-k="${esc(k)}" aria-pressed="${p.diseases.includes(k)}">${esc(disName(k))}</button>`).join("")}</div>
+    <div class="row" style="flex-wrap:nowrap"><input class="inp" id="dis-new" placeholder="${T("Other disease…","অন্য রোগ লিখুন…")}"><button class="btn ghost" data-act="su-dis-add">${T("Add","যোগ")}</button></div>`;
+  }
+  if (s.step === 2) return `${progress(3, total)}
+    <h2 style="font-size:26px">${T("When do you usually eat and sleep?","সাধারণত কখন খান আর ঘুমান?")}</h2>
+    <p class="muted" style="margin:0">${T("Medicine times are set from these, so 'before food' and 'after food' ring at the right time. Change them any time later.","এগুলো দেখে ওষুধের সময় ঠিক হবে, যাতে 'খাওয়ার আগে' আর 'খাওয়ার পরে' ঠিক সময়ে বাজে। পরে যেকোনো সময় বদলাতে পারবেন।")}</p>
+    ${[["b",T("Breakfast","সকালের নাস্তা")],["l",T("Lunch","দুপুরের খাবার")],["d",T("Dinner","রাতের খাবার")],["bed",T("Bedtime","ঘুমানোর সময়")]].map(([k, l]) => `
+      <div class="card row" style="padding:12px 14px;flex-wrap:nowrap"><b class="grow">${l}</b><input class="inp" type="time" id="su-meal-${k}" value="${p.meals[k]}" style="width:150px"></div>`).join("")}`;
+  // step 3: done → add medicines
+  return `
+    <div class="card hero col" style="padding:22px">
+      <h2 style="font-size:26px">${T(`${p.name || "Profile"} is ready`, `${esc(p.name) || "প্রোফাইল"} তৈরি হয়েছে`)}</h2>
+      <p style="margin:0">${T("Now add the medicines. The easiest way is a photo of the prescription.","এখন ওষুধ যোগ করুন। সবচেয়ে সহজ উপায় হলো প্রেসক্রিপশনের ছবি দেওয়া।")}</p>
+    </div>
+    ${addChoices(p.id)}
+    <button class="btn ghost full" data-act="su-later">${T("I'll add medicines later","পরে ওষুধ যোগ করব")}</button>`;
+}
+function addChoices(pid){
+  if (NAT && !window.claude) return `<button class="tile" data-act="new" data-pid="${pid}" style="padding:20px 10px;width:100%">${ICON.pen}${T("Add medicine step by step","ধাপে ধাপে ওষুধ যোগ করুন")}<small>${T("Name, type, time, days","নাম, ধরন, সময়, কত দিন")}</small></button>`;
+  return `<div class="tiles" style="grid-template-columns:1fr 1fr">
+    <button class="tile" data-act="scan" data-pid="${pid}" style="padding:20px 10px">${ICON.rx}${T("Photo of prescription","প্রেসক্রিপশনের ছবি")}<small>${T("Several at once is fine","একাধিক দেওয়া যাবে")}</small></button>
+    <button class="tile" data-act="new" data-pid="${pid}" style="padding:20px 10px">${ICON.pen}${T("Add one by one","একটি একটি করে যোগ")}<small>${T("Step by step","ধাপে ধাপে")}</small></button></div>`;
+}
+function vAdd(){
+  const pid = addFor || (S.profiles[0] || {}).id;
+  return `<div class="row"><button class="iconbtn" data-act="go" data-v="${S.setupDone ? "home" : "setup"}">← ${T("Back","পেছনে")}</button></div>
+    <h2 style="font-size:26px">${T("Add medicine","ওষুধ যোগ করুন")}</h2>
+    ${S.profiles.length > 1 ? `<div class="col" style="gap:6px"><b>${T("For whom?","কার জন্য?")}</b><div class="chips">${S.profiles.map(p => `<button class="chip" data-act="add-for" data-id="${p.id}" aria-pressed="${pid === p.id}">${esc(p.name || relName(p.rel))}</button>`).join("")}</div></div>` : ""}
+    ${addChoices(pid)}`;
+}
+
+/* ---- Medicine wizard: name → form → when → how long → check ---- */
+function newMed(pid){
+  return {id:uid(), profile:pid, name:"", name_bn:"", cat:"other", form:"tablet", site:"", siteText:"", mode:"meal", food:"after", offset:0, times:[], every:8, first:"08:00", sosMax:"", freq:"daily", weekdays:[], start:dkey(new Date()), end:"", stock:"", note:""};
+}
+function openWiz(m, mode, idx){
+  wiz = {step: mode === "new" ? 1 : 5, mode, idx, m: structuredClone(m), catTouched: mode !== "new", formTouched: mode !== "new", photo:null, audio:null, audioRemoved:false, days: daysTotal(m) || "", confirmDanger:false};
+  view = "wiz"; render(); window.scrollTo(0, 0);
+}
+function vWiz(){
+  const w = wiz, m = w.m, total = 5, p = prof(m.profile), who = p ? esc(p.name || relName(p.rel)) : "";
+  const head = (n, title) => `${progress(n, total, who)}<h2 style="font-size:26px">${title}</h2>`;
+  if (w.step === 1) return `${head(1, T("Medicine name","ওষুধের নাম"))}
+    <input class="inp" id="w-name" value="${esc(m.name)}" placeholder="${T("e.g. Napa 500","যেমন: Napa 500")}" autocomplete="off" style="font-size:20px;padding:14px">
+    <div class="photo-drop">${w.photo || P[m.id] ? `<img src="${w.photo || P[m.id]}" alt="">` : formIcon(m.form)}
+      <div class="col grow" style="gap:6px"><div class="small muted">${T("A photo of the strip or box helps recognise it at alarm time.","ওষুধের পাতা বা বাক্সের ছবি দিলে অ্যালার্মের সময় চিনতে সুবিধা হয়।")}</div>
+      <button class="btn ghost" data-act="photo">${ICON.cam}${w.photo || P[m.id] ? T("Change photo","ছবি বদলান") : T("Take photo (optional)","ছবি তুলুন (ঐচ্ছিক)")}</button></div></div>
+    <label class="f">${T("How should the app say the name? (optional)","অ্যাপ নামটা কীভাবে বলবে? (ঐচ্ছিক)")}<div class="row" style="flex-wrap:nowrap"><input class="inp" id="w-namebn" value="${esc(m.name_bn)}" placeholder="${T("e.g. নাপা","বাংলায় লিখুন, যেমন: নাপা")}"><button class="iconbtn" data-act="say-name" aria-label="${T("Listen","শুনুন")}">${ICON.speaker}</button></div></label>`;
+  if (w.step === 2){
+    const f = FORMS[m.form];
+    return `${head(2, T("What kind of medicine?","কী ধরনের ওষুধ?"))}
+    <div class="tiles three">${Object.entries(FORMS).map(([k, x]) => `<button class="tile" data-act="w-form" data-k="${k}" aria-pressed="${m.form === k}"><svg viewBox="0 0 32 32">${FORM_SVG[k]}</svg>${T(x.en, x.bn)}</button>`).join("")}</div>
+    ${f.sites ? `<h3 style="margin-top:6px">${T("Where?","কোথায় দেবেন?")}</h3>
+      <div class="chips">${f.sites.map(k => `<button class="chip" data-act="w-site" data-k="${k}" aria-pressed="${m.site === k}">${T(SITES[k][0], SITES[k][1])}</button>`).join("")}</div>
+      ${m.site === "other" || m.form === "cream" ? `<input class="inp" id="w-sitetext" value="${esc(m.siteText)}" placeholder="${T("e.g. on the right knee","যেমন: ডান হাঁটুতে")}">` : ""}` : ""}
+    <label class="f">${T("Medicine type (picked from the name, change if wrong)","ওষুধের ধরন (নাম দেখে বাছাই হয়েছে, ভুল হলে বদলান)")}<select class="inp" id="w-cat">${CATS.map(c => `<option value="${c[0]}" ${m.cat === c[0] ? "selected" : ""}>${T(c[1], c[2])}</option>`).join("")}</select></label>`;
+  }
+  if (w.step === 3) return `${head(3, T("When to take it?","কখন নেবেন?"))}
+    <div class="tiles" style="grid-template-columns:1fr 1fr">${[["meal",T("With meals","খাবারের সাথে মিলিয়ে"),T("before/after breakfast, lunch, dinner","নাস্তা, দুপুর, রাতের খাবারের আগে/পরে")],["clock",T("At fixed times","নির্দিষ্ট সময়ে"),T("e.g. 7:00 AM, 10:00 PM","যেমন: সকাল ৭টা, রাত ১০টা")],["interval",T("Every few hours","কয়েক ঘণ্টা পর পর"),T("e.g. every 8 hours","যেমন: প্রতি ৮ ঘণ্টা")],["sos",T("Only when needed","শুধু প্রয়োজন হলে"),T("e.g. for pain or fever, no alarm","যেমন: ব্যথা বা জ্বর হলে, অ্যালার্ম নেই")]].map(([k, t, s]) => `<button class="tile" data-act="w-mode" data-k="${k}" aria-pressed="${m.mode === k}">${t}<small>${s}</small></button>`).join("")}</div>
+    ${whenEditor(m)}`;
+  if (w.step === 4) return `${head(4, T("For how long?","কত দিন চলবে?"))}
+    <div class="chips">${[3,5,7,10,14,21,30,60,90].map(n => `<button class="chip" data-act="w-days" data-n="${n}" aria-pressed="${+w.days === n}">${num(n)} ${T("days","দিন")}</button>`).join("")}<button class="chip" data-act="w-days" data-n="" aria-pressed="${!w.days}">${T("Continues","চলবে (শেষ নেই)")}</button></div>
+    <div class="row"><label class="f" style="flex:1;min-width:130px">${T("Or type days","অথবা দিন লিখুন")}<input class="inp" id="w-daysn" type="number" min="1" inputmode="numeric" value="${esc(w.days)}"></label>
+    <label class="f" style="flex:1;min-width:130px">${T("Starting","শুরু")}<input class="inp" id="w-start" type="date" value="${esc(m.start)}"></label></div>
+    ${w.days ? `<div><b>${T("Last day: ","শেষ দিন: ")}${dateLabel(dkey(new Date(new Date(m.start + "T00:00").getTime() + (+w.days - 1) * 864e5)), {day:"numeric", month:"long"})}</b></div>` : ""}
+    ${m.mode !== "sos" ? `<h3 style="margin-top:6px">${T("How often?","কত দিন পর পর?")}</h3>
+    <div class="seg">${[["daily",T("Every day","প্রতিদিন")],["alt",T("Every other day","একদিন পর পর")],["week",T("Some days","নির্দিষ্ট বারে")]].map(([k, l]) => `<button data-act="w-freq" data-k="${k}" aria-pressed="${m.freq === k}">${l}</button>`).join("")}</div>
+    ${m.freq === "week" ? `<div class="chips">${[6,0,1,2,3,4,5].map(i => `<button class="chip" data-act="w-wd" data-i="${i}" aria-pressed="${(m.weekdays || []).includes(i)}">${new Date(2024, 0, 7 + i).toLocaleDateString(S.lang === "bn" ? "bn-BD" : "en-GB", {weekday:"long"})}</button>`).join("")}</div>` : ""}` : ""}
+    ${formOf(m).count ? `<label class="f" style="margin-top:6px">${T(`How many ${formOf(m).uen}s do you have now? (optional)`, `এখন কতগুলো ${formOf(m).bn} আছে? (ঐচ্ছিক)`)}<input class="inp" id="w-stock" type="number" min="0" inputmode="numeric" value="${esc(m.stock)}" placeholder="${T("e.g. 30","যেমন: ৩০")}"></label>
+    <div class="small muted">${T("It counts down each time you tap 'took it', and warns 5 days before it runs out.","প্রতিবার 'খেয়েছি' চাপলে কমবে, শেষ হওয়ার ৫ দিন আগে সতর্ক করবে।")}</div>` : ""}`;
+  // Step 5: check
+  const W = rulesFor(m, S.meds), danger = W.some(x => x[0] === "danger"), hasAudio = w.audio || (A[m.id] && !w.audioRemoved);
+  const tmp = {...m, end: w.days ? dkey(new Date(new Date(m.start + "T00:00").getTime() + (+w.days - 1) * 864e5)) : ""};
+  return `${head(5, T("Check and save","মিলিয়ে নিন ও সেভ করুন"))}
+    <div class="card col">
+      <div class="medrow">${w.photo ? `<img class="thumb" src="${w.photo}" alt="">` : medThumb(m)}<div class="grow"><div style="font-weight:700;font-size:20px">${esc(m.name)}</div><div class="small muted">${formName(m.form)} · ${catName(m.cat)}</div></div></div>
+      <dl class="sum">
+        <dt>${T("For","কার")}</dt><dd>${who}</dd><button class="iconbtn ed" data-act="w-goto" data-n="1">${T("Edit","বদলান")}</button>
+        ${siteName(m) ? `<dt>${T("Where","কোথায়")}</dt><dd>${esc(siteName(m))}</dd><button class="iconbtn ed" data-act="w-goto" data-n="2">${T("Edit","বদলান")}</button>` : ""}
+        <dt>${T("When","কখন")}</dt><dd>${whenText(m)}${foodText(m) ? "<br>" + foodText(m) : ""}</dd><button class="iconbtn ed" data-act="w-goto" data-n="3">${T("Edit","বদলান")}</button>
+        <dt>${T("How long","কত দিন")}</dt><dd>${durationText(tmp)}<br>${freqText(m)}</dd><button class="iconbtn ed" data-act="w-goto" data-n="4">${T("Edit","বদলান")}</button>
+        ${formOf(m).count ? `<dt>${T("Have","আছে")}</dt><dd>${m.stock !== "" ? num(m.stock) : T("not given","দেওয়া নেই")}</dd><button class="iconbtn ed" data-act="w-goto" data-n="4">${T("Edit","বদলান")}</button>` : ""}
+      </dl>
+    </div>
+    ${W.map(x => banner(x[0], x[1])).join("")}
+    <div class="card col">
+      <b>${T("What the alarm will say","অ্যালার্ম যা বলবে")}</b>
+      <div class="small muted">${esc(hasAudio ? T("(your recorded voice)","(আপনার রেকর্ড করা কণ্ঠ)") : doseLines({med:tmp, amt:(m.times[0] || {}).amt || 1}).join(" "))}</div>
+      <div class="row"><button class="btn ghost" data-act="w-listen">${ICON.speaker}${T("Listen","শুনুন")}</button>
+      <button class="btn ghost" data-act="rec">${T(hasAudio ? "Record again" : "Record in my voice", hasAudio ? "আবার রেকর্ড" : "নিজের কণ্ঠে রেকর্ড")}</button>
+      ${hasAudio ? `<button class="btn ghost" data-act="del-rec" style="color:var(--alert)">${T("Remove recording","রেকর্ড মুছুন")}</button>` : ""}</div>
+      <label class="f">${T("Extra instruction (optional)","অতিরিক্ত নির্দেশনা (ঐচ্ছিক)")}<input class="inp" id="w-note" value="${esc(m.note)}" placeholder="${T("e.g. chew it, with a full glass of water","যেমন: চিবিয়ে খাবেন, এক গ্লাস পানির সাথে")}"></label>
+    </div>
+    <button class="btn big full ${danger ? "warn" : ""}" data-act="w-save">${danger && w.confirmDanger ? T("I checked with my doctor, save anyway","ডাক্তারের সাথে কথা বলেছি, তবুও সেভ করুন") : w.mode === "review" ? T("Done","ঠিক আছে") : T("Save & set alarm","সেভ করুন ও অ্যালার্ম দিন")}</button>
+    ${w.mode === "edit" ? `<div class="row"><button class="btn ghost" style="flex:1" data-act="w-pause">${m.paused ? T("Resume","আবার চালু") : T("Pause","সাময়িক বন্ধ")}</button><button class="btn ghost" style="flex:1;color:var(--alert)" data-act="w-del">${T("Delete","মুছে ফেলুন")}</button></div>` : ""}
+    <button class="btn ghost full" data-act="w-cancel">${T("Cancel","বাতিল")}</button>`;
+}
+function stepper(id, val, step, i){
+  return `<div class="stepper"><button data-act="amt-dn" data-i="${i}" data-s="${step}" aria-label="-">−</button><input class="inp" id="${id}" data-i="${i}" type="number" step="${step}" min="${step}" value="${val}" inputmode="decimal"><button data-act="amt-up" data-i="${i}" data-s="${step}" aria-label="+">+</button></div>`;
+}
+function whenEditor(m){
+  const f = formOf(m), unit = T(f.uen + "(s)", f.ubn);
+  const foodSeg = (opts) => `<div class="seg">${opts.map(k => `<button data-act="w-food" data-k="${k}" aria-pressed="${m.food === k}">${T(FOOD[k][0], FOOD[k][1])}</button>`).join("")}</div>`;
+  if (m.mode === "meal"){
+    const sel = s => m.times.find(x => x.slot === s);
+    return `
+    <h3>${T("Before or after eating?","খাওয়ার আগে না পরে?")}</h3>
+    ${foodSeg(["before","after","with","empty"])}
+    ${m.food === "before" ? `<div class="small muted" style="font-weight:600">${T("How long before?","কতক্ষণ আগে?")}</div><div class="chips">${[15,30,45,60].map(n => `<button class="chip" data-act="w-off" data-n="${n}" aria-pressed="${(+m.offset || 30) === n}">${durText(n)}</button>`).join("")}</div>` : ""}
+    ${m.food === "after" ? `<div class="small muted" style="font-weight:600">${T("How long after?","খাওয়ার কতক্ষণ পরে?")}</div><div class="chips">${[0,15,30,60,120].map(n => `<button class="chip" data-act="w-off" data-n="${n}" aria-pressed="${(+m.offset || 0) === n}">${n ? durText(n) : T("Right after","পরপরই")}</button>`).join("")}</div>` : ""}
+    ${m.food === "empty" ? `<div class="small muted">${T("Alarm rings 1 hour before the meal.","খাবারের ১ ঘণ্টা আগে অ্যালার্ম বাজবে।")}</div>` : ""}
+    <h3 style="margin-top:6px">${T("With which meals? How much each time?","কোন বেলায়? প্রতিবার কতটুকু?")}</h3>
+    ${["b","l","d","bed"].map(s => { const x = sel(s), i = m.times.indexOf(x); return `
+      <div class="mealtile ${x ? "on" : ""}">
+        <div class="hd"><button data-act="w-slot" data-s="${s}"><span class="box">${x ? ICON.check : ""}</span>${T(SLOT[s][0], SLOT[s][1])} <span class="small muted" style="font-weight:400">(${T(SLOT[s][2], SLOT[s][3])} ${fmtTime(mealsOf(m.profile)[s])})</span></button></div>
+        ${x ? `<div class="row">${f.noAmt ? "" : stepper("amt-" + i, x.amt, f.step, i) + `<span class="small">${unit}</span>`}<span class="grow"></span><input class="inp" type="time" id="tm-${i}" data-i="${i}" value="${x.t}" style="width:140px"></div>` : ""}
+      </div>`; }).join("")}
+    <div class="small muted">${T("The clock time is worked out from the meal time; change it if you want a different time.","সময়টা খাবারের সময় দেখে বসানো হয়েছে; অন্য সময় চাইলে বদলে দিন।")}</div>`;
+  }
+  if (m.mode === "clock") return `
+    <h3>${T("Which times?","কোন কোন সময়ে?")}</h3>
+    ${m.times.map((x, i) => `<div class="card row" style="padding:10px 12px"><input class="inp" type="time" id="tm-${i}" data-i="${i}" value="${x.t}" style="flex:1;min-width:120px">${f.noAmt ? "" : stepper("amt-" + i, x.amt, f.step, i)}<button class="iconbtn" data-act="w-tdel" data-i="${i}" aria-label="${T("Remove","মুছুন")}">✕</button></div>`).join("")}
+    <button class="btn ghost" data-act="w-tadd">+ ${T("Add a time","সময় যোগ করুন")}</button>
+    <h3 style="margin-top:6px">${T("Food","খাবার")}</h3>${foodSeg(["any","empty","after"])}`;
+  if (m.mode === "interval") return `
+    <h3>${T("Every how many hours?","কত ঘণ্টা পর পর?")}</h3>
+    <div class="chips">${[4,6,8,12,24].map(n => `<button class="chip" data-act="w-every" data-n="${n}" aria-pressed="${+m.every === n}">${T(`every ${n} h`, `প্রতি ${num(n)} ঘণ্টা`)}</button>`).join("")}</div>
+    <div class="row"><label class="f" style="flex:1;min-width:140px">${T("First dose at","প্রথম ডোজ")}<input class="inp" type="time" id="w-first" value="${m.first}"></label>${f.noAmt ? "" : `<label class="f">${T("Each time","প্রতিবার")}${stepper("amt-0", (m.times[0] || {}).amt || 1, f.step, 0)}</label>`}</div>
+    <div class="small"><b>${T("Alarms","অ্যালার্ম")}:</b> ${m.times.map(x => fmtTime(x.t)).join(", ")}</div>`;
+  return `
+    ${banner("info", T("No alarm for this. When you take it, tap 'took it now' on the Today page so you can see how many times you took it.","এর জন্য অ্যালার্ম বাজবে না। যখন খাবেন, 'আজ' পাতায় 'এখন খেলাম' চাপুন, তাহলে দিনে কতবার খেলেন দেখা যাবে।"))}
+    <div class="row">${f.noAmt ? "" : `<label class="f">${T("Each time","প্রতিবার")}${stepper("amt-0", (m.times[0] || {}).amt || 1, f.step, 0)}</label>`}
+    <label class="f" style="flex:1;min-width:140px">${T("At most, times a day (optional)","দিনে সর্বোচ্চ কতবার (ঐচ্ছিক)")}<input class="inp" id="w-sosmax" type="number" min="1" value="${esc(m.sosMax)}"></label></div>`;
+}
+/* Ask Claude once how to say an English brand name in Bangla, so the voice reads it clearly */
+async function guessPronunciation(m){
+  if (S.lang !== "bn" || m.name_bn || !/[a-z]/i.test(m.name || "")) return;
+  try {
+    if (!SAMPLE && window.claude) SAMPLE = await claude.use("sample");
+    if (!SAMPLE) return;
+    const r = await SAMPLE(`Write how this medicine name is pronounced in Bangladesh, in Bangla script only, without the strength or numbers. Example: "Napa Extra 500mg" -> "নাপা এক্সট্রা". Name: "${m.name.replace(/"/g, "")}". Reply with only the Bangla words.`, {modelTier:"quick"});
+    const t = (r && r.text || "").trim().split("\n")[0].replace(/["'.।]/g, "").slice(0, 40);
+    if (t && /[\u0980-\u09FF]/.test(t) && !m.name_bn){ m.name_bn = t; if (view === "wiz" && wiz && wiz.m === m && wiz.step === 5) render(); }
+  } catch(e){}
+}
+function wizValidate(){
+  const m = wiz.m;
+  if (wiz.step === 1 && !m.name.trim()){ toast(T("Write the medicine name","ওষুধের নাম লিখুন")); return false; }
+  if (wiz.step === 3 && m.mode !== "sos" && !m.times.length){ toast(T("Choose at least one time","অন্তত একটি সময় বাছাই করুন")); return false; }
+  if (wiz.step === 4 && m.freq === "week" && !(m.weekdays || []).length){ toast(T("Choose the days","দিনগুলো বাছাই করুন")); return false; }
+  return true;
+}
+function setMode(m, mode){
+  const amt = (m.times[0] || {}).amt || 1;
+  m.mode = mode;
+  if (mode === "meal"){ m.times = []; if (!["before","after","with","empty"].includes(m.food)) m.food = "after"; }
+  if (mode === "clock"){ m.times = [{t:"08:00", amt, custom:true}]; if (!["any","empty","after"].includes(m.food)) m.food = "any"; }
+  if (mode === "interval"){ m.times = [{t:m.first, amt}]; m.food = "any"; m.times = intervalTimes(m); }
+  if (mode === "sos"){ m.times = [{t:"00:00", amt}]; m.food = "any"; }
+}
+
+/* ---- Prescription scan & review ---- */
+const RX_PROMPT = `You read a doctor's prescription image, usually from Bangladesh (Bangla and English mixed, handwritten or printed).
+Dose notation: "1+0+1" = morning+noon+night amounts; "1+1+1+1" adds bedtime; "০+০+১" uses Bangla digits; "½" is half. For drops, numbers are drops per dose. For syrup, numbers are spoons ("২ চামচ").
+Abbreviations: OD/QD once daily, BD/BID twice, TDS/TID thrice, QID four times, HS bedtime, SOS/PRN only when needed, q6h/q8h every 6/8 hours, "সপ্তাহে ১ বার" once a week, "একদিন পর পর" every other day.
+Forms: tablet, capsule, syrup (any liquid/suspension), drop (E/D eye drop, ear drop, nasal drop), cream (cream/ointment/gel/paste/lotion), inhaler, spray, insulin, injection, powder (sachet/ORS), suppository.
+Sites: both_eyes, right_eye, left_eye, both_ears, right_ear, left_ear, nose, mouth, skin, wound, gums.
+Food: "খাওয়ার আগে"/"a.c." = before; "খাওয়ার পরে"/"ভরা পেটে"/"p.c." = after; "খালি পেটে" = empty; "খাবারের সাথে" = with. If a time gap is written ("৩০ মিনিট আগে", "1 hour after") put it in offset_minutes.
+Duration: "৭ দিন"/"7 days" = 7; "১ মাস" = 30; "চলবে"/"continue" = null.
+Return JSON only:
+{"medicines":[{"name":"as written, with strength","name_bn":"brand name pronounced in Bangla script, no strength, e.g. 'নাপা', 'সেকলো'","form":"tablet|capsule|syrup|drop|cream|inhaler|spray|insulin|inj|powder|supp","site":"one of the sites or null","pattern":"e.g. 1+0+1 in western digits, or null","every_hours":number or null,"sos":boolean,"food":"before|after|with|empty|any","offset_minutes":number or null,"days":number or null,"freq":"daily|alt|weekly","category":"nsaid|para|gastric|sleep|diabetes|bp|thyroid|antibiotic|vitamin|other","unclear":boolean,"note":"short extra instruction, or empty"}]}
+List only medicines actually written. If a name is hard to read, give your best reading and set unclear true. If no dose is written use "1+0+1" and set unclear true.`;
+const loadImg = file => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+function scaleTo(img, max){ const r = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement("canvas"); c.width = Math.round(img.width*r); c.height = Math.round(img.height*r); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); return c; }
+function rxToMed(x, pid){
+  const m = newMed(pid);
+  m.name = x.name || ""; m.name_bn = x.name_bn || "";
+  m.form = FORMS[x.form] ? x.form : (detectForm(m.name) || "tablet");
+  m.site = SITES[x.site] ? x.site : (m.form === "drop" ? "both_eyes" : "");
+  m.cat = CATS.some(c => c[0] === x.category) && x.category !== "other" ? x.category : detectCat(m.name);
+  m.food = FOOD[x.food] ? x.food : "after";
+  m.offset = +x.offset_minutes || (m.food === "before" ? 30 : 0);
+  m.note = x.note || "";
+  m.freq = x.freq === "alt" ? "alt" : x.freq === "weekly" ? "week" : "daily";
+  if (m.freq === "week") m.weekdays = [new Date().getDay()];
+  if (x.sos){ setMode(m, "sos"); }
+  else if (+x.every_hours){ m.every = +x.every_hours; setMode(m, "interval"); }
+  else {
+    m.mode = "meal";
+    const parts = String(x.pattern || "1+0+1").replace(/[০-৯]/g, c => BN.indexOf(c)).replace(/½/g, "0.5").split(/[+\-]/).map(s => parseFloat(s) || 0);
+    const slots = parts.length >= 4 ? ["b","l","d","bed"] : parts.length === 2 ? ["b","d"] : ["b","l","d"];
+    parts.slice(0, 4).forEach((a, i) => { if (a > 0) m.times.push({slot:slots[i], amt:a, t:"00:00"}); });
+    if (!m.times.length) m.times.push({slot:"b", amt:1, t:"00:00"});
+    if (m.food === "any") m.food = "after";
+    retime(m);
+  }
+  if (x.days) m.end = dkey(new Date(new Date(m.start + "T00:00").getTime() + (+x.days - 1) * 864e5));
+  return {med:m, on:!x.sos || true, unclear:!!x.unclear};
+}
+async function scanFiles(files, pid){
+  const keep = review && review.state === "review" ? review : null;
+  view = "scan";
+  review = {state:"loading", pid, done:0, total:files.length, imgs: keep ? keep.imgs : [], items: keep ? keep.items : [], failed:0};
+  render();
+  try {
+    if (!SAMPLE && window.claude) SAMPLE = await claude.use("sample");
+    if (!SAMPLE) throw new Error(T("Reading prescriptions isn't available here. Add the medicines one by one instead.","এখানে প্রেসক্রিপশন পড়ার সুবিধা চালু নেই। একটি একটি করে ওষুধ যোগ করুন।"));
+    for (const f of files){
+      try {
+        const img = await loadImg(f);
+        review.imgs.push(scaleTo(img, 900).toDataURL("image/jpeg", 0.72)); render();
+        const blob = await new Promise(r => scaleTo(img, 1600).toBlob(r, "image/jpeg", 0.85));
+        const out = await SAMPLE.json(RX_PROMPT, {images:[blob], modelTier:"default"});
+        for (const x of (out && out.medicines) || []){
+          const it = rxToMed(x, pid);
+          if (review.items.some(y => y.med.name.trim().toLowerCase() === it.med.name.trim().toLowerCase())) continue;
+          review.items.push(it);
+        }
+      } catch(err){ if (err && ["not_granted","rate_limited"].includes(err.code)) throw err; review.failed++; }
+      review.done++; render();
+    }
+    if (!review.items.length) throw new Error(T("No medicines found. Try clearer, brighter photos.","কোনো ওষুধ পাওয়া যায়নি। আরো পরিষ্কার, আলোতে তোলা ছবি দিন।"));
+    review.state = "review";
+  } catch(e){
+    const msg = e && e.code === "not_granted" ? T("Permission to read the photo was not given.","ছবি পড়ার অনুমতি দেওয়া হয়নি।") : e && e.code === "rate_limited" ? T("Too many tries. Wait a minute.","অনেকবার চেষ্টা হয়েছে। এক মিনিট পরে চেষ্টা করুন।") : (e && (e.message || e.code)) || String(e);
+    if (review.items.length){ review.state = "review"; toast(msg); } else review = {state:"error", pid, imgs:review.imgs, msg};
+  }
+  render();
+}
+function vScan(){
+  if (!review) return "";
+  const imgs = (review.imgs || []).map(u => `<img src="${u}" style="max-width:100%;border-radius:12px" alt="">`).join("");
+  if (review.state === "loading") return `<div class="card col" style="align-items:center;padding:30px"><div class="spin"></div><h3>${T(`Reading prescription ${review.done + 1} of ${review.total}…`, `${num(review.total)}টির মধ্যে ${num(review.done + 1)} নম্বর প্রেসক্রিপশন পড়া হচ্ছে…`)}</h3><p class="small muted" style="margin:0">${T("About 10–30 seconds each.","প্রতিটিতে ১০–৩০ সেকেন্ড লাগতে পারে।")}</p>${imgs}</div>`;
+  if (review.state === "error") return `${banner("danger", `<b>${T("Couldn't read it","পড়া যায়নি")}</b>${esc(review.msg)}`)}<button class="btn full" data-act="scan" data-pid="${review.pid}">${T("Try other photos","অন্য ছবি দিন")}</button><button class="btn ghost full" data-act="new" data-pid="${review.pid}">${T("Add one by one","একটি একটি করে যোগ করুন")}</button><button class="btn ghost full" data-act="go" data-v="home">${T("Cancel","বাতিল")}</button>`;
+  const on = review.items.filter(x => x.on).length, p = prof(review.pid);
+  return `<h2 style="font-size:26px">${T("Check the medicines","ওষুধগুলো মিলিয়ে নিন")}</h2>
+    ${banner("warn", T(`Found ${review.items.length} medicines${p ? " for " + esc(p.name) : ""}. Compare each with the prescription. Tap 'Check / change' to fix anything. Untick what you don't want.`, `${p ? esc(p.name) + "-এর জন্য " : ""}${num(review.items.length)}টি ওষুধ পাওয়া গেছে। প্রতিটি প্রেসক্রিপশনের সাথে মিলিয়ে নিন। কিছু ভুল থাকলে 'দেখুন / বদলান' চাপুন। যেটা চান না, টিক তুলে দিন।`))}
+    ${review.failed ? banner("danger", T(`${review.failed} photo(s) could not be read.`, `${num(review.failed)}টি ছবি পড়া যায়নি।`)) : ""}
+    <details class="card"><summary>${T("Show prescription photos","প্রেসক্রিপশনের ছবি দেখুন")}</summary><div class="col" style="margin-top:10px">${imgs}</div></details>
+    ${review.items.map((it, i) => { const m = it.med, W = rulesFor(m, [...S.meds, ...review.items.filter((y, j) => j !== i && y.on).map(y => y.med)]).filter(x => x[0] !== "info"); return `
+      <div class="card col rv ${it.on ? "" : "off"}">
+        <div class="medrow"><input type="checkbox" data-rvon="${i}" ${it.on ? "checked" : ""} style="width:26px;height:26px;flex:none" aria-label="${T("Include","রাখুন")}">${formIcon(m.form)}
+          <div class="grow"><div style="font-weight:700;font-size:18px">${esc(m.name)}</div><div class="small muted">${formName(m.form)}${siteName(m) ? " · " + esc(siteName(m)) : ""}</div></div></div>
+        ${it.unclear ? banner("warn", T("Hard to read. Please check this one.","পড়া কঠিন ছিল। এটি ভালো করে মিলিয়ে নিন।")) : ""}
+        <div class="small"><b>${whenText(m)}</b>${foodText(m) ? " · " + foodText(m) : ""}</div>
+        <div class="small">${durationText(m)} · ${freqText(m)}</div>
+        ${it.on ? W.map(x => banner(x[0], x[1])).join("") : ""}
+        <button class="btn ghost" data-act="rv-edit" data-i="${i}">${T("Check / change","দেখুন / বদলান")}</button>
+      </div>`; }).join("")}
+    <button class="btn big full" data-act="rv-save" ${on ? "" : "disabled"}>${T(`Save ${on} medicines & set alarms`, `${num(on)}টি ওষুধ সেভ করুন ও অ্যালার্ম দিন`)}</button>
+    <button class="btn ghost full" data-act="scan" data-pid="${review.pid}">+ ${T("Add more prescription photos","আরো প্রেসক্রিপশনের ছবি দিন")}</button>
+    <button class="btn ghost full" data-act="rv-cancel">${T("Cancel","বাতিল")}</button>`;
+}
+
+/* ---- Today ---- */
+function filterChips(){
+  if (S.profiles.length < 2) return "";
+  return `<div class="chips"><button class="chip" data-act="filter" data-id="all" aria-pressed="${S.filter === "all"}">${T("Everyone","সবাই")}</button>${S.profiles.map(p => `<button class="chip" data-act="filter" data-id="${p.id}" aria-pressed="${S.filter === p.id}">${esc(p.name || relName(p.rel))}</button>`).join("")}</div>`;
+}
+const whoTag = m => S.profiles.length > 1 ? ` <span class="tag who">${esc((prof(m.profile) || {}).name || "")}</span>` : "";
+function vHome(){
+  const doses = dosesFor(new Date(), S.filter), nm = nowMin();
+  const sos = S.meds.filter(m => m.mode === "sos" && !m.paused && (S.filter === "all" || m.profile === S.filter) && (!m.end || m.end >= dkey(new Date())));
+  if (!S.meds.length) return `${filterChips()}<div class="card hero col"><h2>${T("No medicines yet","এখনো কোনো ওষুধ নেই")}</h2><p style="margin:0">${T("Add the first medicine to start the alarms.","অ্যালার্ম চালু করতে প্রথম ওষুধ যোগ করুন।")}</p></div>${addChoices(S.filter !== "all" ? S.filter : S.profiles[0].id)}`;
+  const due = doses.filter(d => statusOf(d) === "due"), up = doses.filter(d => statusOf(d) === "up");
+  let next;
+  if (due.length) next = `<div class="card next col"><div class="lbl">${T("Take now","এখন নিন")} · ${T(`${due.length} medicine${due.length > 1 ? "s" : ""}`, `${num(due.length)}টি ওষুধ`)}</div><div class="when">${fmtTime(due[0].t)}</div><div>${due.map(d => esc(d.med.name)).join(", ")}</div><button class="btn pill" data-act="open-due">${T("Open","দেখুন")}</button></div>`;
+  else if (up.length){
+    const t = up[0].t, g = up.filter(d => d.t === t), mins = toMin(t) - nm;
+    const inTxt = mins < 60 ? T(`in ${mins} min`, `${num(mins)} মিনিট পরে`) : T(`in ${Math.floor(mins/60)} h ${mins%60} min`, `${num(Math.floor(mins/60))} ঘণ্টা ${num(mins%60)} মিনিট পরে`);
+    next = `<div class="card next col"><div class="lbl">${T("Next alarm","পরের অ্যালার্ম")} · ${inTxt} · ${T(`${g.length} medicine${g.length > 1 ? "s" : ""}`, `${num(g.length)}টি ওষুধ`)}</div><div class="when">${fmtTime(t)}</div><div>${g.map(d => esc(d.med.name)).join(", ")}</div></div>`;
+  } else next = `<div class="card next col"><div class="lbl">${T("Today","আজ")}</div><div class="when" style="font-size:28px">${doses.length ? T("All done for today","আজকের সব ওষুধ শেষ") : T("No alarms today","আজ কোনো অ্যালার্ম নেই")}</div></div>`;
+  const slots = {}; doses.forEach(d => (slots[d.t] = slots[d.t] || []).push(d));
+  const low = S.meds.filter(m => (S.filter === "all" || m.profile === S.filter) && m.stock !== "" && m.stock != null && dailyUse(m) > 0 && +m.stock / dailyUse(m) <= 5 && (!m.end || daysLeft(m) > +m.stock / dailyUse(m)));
+  const today = dkey(new Date());
+  return `${permBanner(false)}${filterChips()}${next}
+  ${low.map(m => banner("warn", `<b>${T("Running low","ওষুধ ফুরিয়ে আসছে")}: ${esc(m.name)}${S.profiles.length > 1 ? " (" + esc(prof(m.profile).name) + ")" : ""}</b>${T(`About ${Math.floor(m.stock / dailyUse(m))} days left. Buy more soon.`, `আর প্রায় ${num(Math.floor(m.stock / dailyUse(m)))} দিনের ওষুধ আছে। শীঘ্রই কিনে নিন।`)}`)).join("")}
+  ${doses.length ? `<div class="card col"><h3>${T("Today's medicines","আজকের ওষুধ")}</h3>
+    ${Object.entries(slots).map(([t, ds]) => `<div class="slot"><h3 style="margin-top:6px">${fmtTime(t)} <span class="small muted" style="font-weight:400">· ${T(`${ds.length} medicine${ds.length > 1 ? "s" : ""}`, `${num(ds.length)}টি`)}</span></h3>
+      ${ds.map(d => { const s = statusOf(d); return `<div class="dose">${medThumb(d.med)}
+        <div class="grow"><div class="nm">${esc(d.med.name)}${whoTag(d.med)}</div><div class="meta">${esc(amtText(d.amt, d.med))}${siteName(d.med) ? " · " + esc(siteName(d.med)) : ""}${foodText(d.med) ? " · " + foodText(d.med) : ""}</div><div class="meta">${durationText(d.med)}</div></div>
+        ${s === "taken" ? `<span class="tag taken">${T("Taken","নেওয়া হয়েছে")} ✓</span>` : s === "skipped" ? `<span class="tag skip">${T("Skipped","বাদ")}</span>` :
+          `<span class="col" style="gap:6px;align-items:flex-end"><span class="tag ${s}">${s === "due" ? T("Now","এখন") : s === "missed" ? T("Missed","বাদ পড়েছে") : T("Later","পরে")}</span>${s !== "up" ? `<button class="iconbtn" data-act="take" data-id="${d.id}">${T("Took it","নিয়েছি")}</button>` : ""}</span>`}
+      </div>`; }).join("")}</div>`).join("")}</div>` : ""}
+  ${sos.length ? `<div class="card col"><h3>${T("Only when needed","শুধু প্রয়োজন হলে")}</h3>${sos.map(m => { const n = Object.keys(S.log).filter(k => k.startsWith(`${today}|${m.id}|sos`)).length, over = m.sosMax && n >= +m.sosMax; return `
+    <div class="dose">${medThumb(m)}<div class="grow"><div class="nm">${esc(m.name)}${whoTag(m)}</div><div class="meta">${esc(amtText((m.times[0] || {}).amt || 1, m))} · ${T(`taken ${n} time(s) today`, `আজ ${num(n)} বার নেওয়া হয়েছে`)}${m.sosMax ? T(` (max ${m.sosMax})`, ` (সর্বোচ্চ ${num(m.sosMax)})`) : ""}</div>${over ? `<div class="meta" style="color:var(--alert);font-weight:700">${T("Daily limit reached. Don't take more today.","আজকের সর্বোচ্চ সীমা শেষ। আজ আর নেবেন না।")}</div>` : ""}</div>
+    <button class="iconbtn" data-act="sos-take" data-id="${m.id}" ${over ? "disabled" : ""}>${T("Took it now","এখন নিলাম")}</button></div>`; }).join("")}</div>` : ""}
+  <button class="btn full" data-act="add">+ ${T("Add medicine","ওষুধ যোগ করুন")}</button>
+  <div class="card col"><h3>${T("Last 7 days","গত ৭ দিন")}</h3>${weekBars()}</div>
+  ${NAT ? "" : banner("info", `<b>${T("Keep this app open","অ্যাপটি খোলা রাখুন")}</b>${T("Alarms ring while the app is open on the phone (the screen can turn off, but don't close the app). Keep the volume up and charge at night.","ফোনে অ্যাপ খোলা থাকলে অ্যালার্ম বাজবে (স্ক্রিন বন্ধ হতে পারে, কিন্তু অ্যাপ বন্ধ করবেন না)। ভলিউম বাড়িয়ে রাখুন, রাতে চার্জে দিন।")}`)}`;
+}
+function weekBars(){
+  const out = [];
+  for (let i = 6; i >= 0; i--){
+    const d = new Date(Date.now() - i*864e5), ds = dosesFor(d, S.filter).filter(x => i > 0 || toMin(x.t) <= nowMin());
+    const taken = ds.filter(x => S.log[x.id] && S.log[x.id].s === "taken").length, pct = ds.length ? Math.round(taken / ds.length * 100) : 0;
+    out.push(`<div><i><b style="height:${pct}%"></b></i>${d.toLocaleDateString(S.lang === "bn" ? "bn-BD" : "en-GB", {weekday:"short"})}<br><span style="font-variant-numeric:tabular-nums">${ds.length ? num(pct) + "%" : "–"}</span></div>`);
+  }
+  return `<div class="week">${out.join("")}</div>`;
+}
+function vBig(){
+  const doses = dosesFor(new Date()), due = doses.filter(d => statusOf(d) === "due"), up = doses.filter(d => statusOf(d) === "up");
+  let body;
+  if (due.length){
+    const first = gastricFirst(due);
+    body = `<div class="who">${T(`Take ${due.length} medicine${due.length > 1 ? "s" : ""} now`, `এখন ${num(due.length)}টি ওষুধ নিন`)}</div>${first ? banner("danger", esc(S.lang === "bn" ? first.bn : first.en)) : ""}
+      ${due.map((d, i) => `<div class="card bigmed">${due.length > 1 ? `<div class="who" style="font-size:22px">${num(i + 1)}</div>` : ""}${P[d.med.id] ? `<img src="${P[d.med.id]}" alt="">` : formIcon(d.med.form)}<div class="nm">${esc(d.med.name)}</div><div class="meta"><b>${esc(amtText(d.amt, d.med))}</b>${siteName(d.med) ? " · " + esc(siteName(d.med)) : ""}</div><div class="meta">${foodText(d.med)}</div>${S.profiles.length > 1 ? `<div class="meta">${esc(prof(d.med.profile).name)}</div>` : ""}
+        <button class="btn big full" data-act="take" data-id="${d.id}">${T("Took it","নিয়েছি")} ✓</button></div>`).join("")}
+      <button class="btn ghost big full" data-act="big-speak">${ICON.speaker}${T("Listen","শুনুন")}</button>`;
+  } else if (up.length) body = `<div class="card bigmed" style="padding:26px 16px"><div class="who">${T("No medicine right now","এখন কোনো ওষুধ নেই")}</div><div class="meta">${T("Next","পরের ওষুধ")}</div><div class="nm">${fmtTime(up[0].t)}</div><div class="meta">${up.filter(d => d.t === up[0].t).map(d => esc(d.med.name)).join(", ")}</div></div>`;
+  else body = `<div class="card bigmed" style="padding:26px 16px"><div class="who">${T("All medicines taken today","আজকের সব ওষুধ নেওয়া হয়েছে")}</div></div>`;
+  return `<div class="big col" style="gap:16px">${body}<button class="btn ghost" data-act="big-off" style="align-self:center;font-size:14px">${T("Exit big-button mode","বড় বোতাম মোড বন্ধ")}</button></div>`;
+}
+
+/* ---- Medicines list ---- */
+function vMeds(){
+  const list = S.meds.filter(m => S.filter === "all" || m.profile === S.filter);
+  return `${filterChips()}
+  <button class="btn full" data-act="add">+ ${T("Add medicine","ওষুধ যোগ করুন")}</button>
+  ${list.length ? list.map(m => { const W = rulesFor(m, S.meds).filter(x => x[0] !== "info"); return `
+    <div class="card col">
+      <div class="medrow">${medThumb(m)}<div class="grow"><div style="font-weight:700;font-size:18px">${esc(m.name)}${m.paused ? ` <span class="tag up">${T("Paused","বন্ধ")}</span>` : ""}${whoTag(m)}</div><div class="small muted">${formName(m.form)}${siteName(m) ? " · " + esc(siteName(m)) : ""}</div></div>
+      <button class="iconbtn" data-act="edit" data-id="${m.id}">${T("Edit","বদলান")}</button></div>
+      <div class="small"><b>${T("When","কখন")}:</b> ${whenText(m)}${foodText(m) ? " · " + foodText(m) : ""}</div>
+      <div class="small"><b>${T("How long","কত দিন")}:</b> ${durationText(m)} · ${freqText(m)}</div>
+      ${formOf(m).count ? (m.stock !== "" && m.stock != null ? `<div class="small"><b>${T("Have","আছে")}:</b> ${num(m.stock)}${dailyUse(m) ? T(` · about ${Math.floor(m.stock / dailyUse(m))} days`, ` · প্রায় ${num(Math.floor(m.stock / dailyUse(m)))} দিন চলবে`) : ""}</div>` : "") : ""}
+      ${W.map(x => banner(x[0], x[1])).join("")}
+    </div>`; }).join("") : `<p class="muted">${T("No medicines yet.","এখনো কোনো ওষুধ নেই।")}</p>`}`;
+}
+
+/* ---- Family ---- */
+function vPeople(){
+  return `<h2 style="font-size:24px">${T("People on this phone","এই ফোনে যাদের ওষুধ")}</h2>
+  ${S.profiles.map(p => { const n = S.meds.filter(m => m.profile === p.id).length; return `
+    <div class="card col">
+      <div class="medrow"><div class="thumb" style="font-family:var(--display);font-weight:800;font-size:22px">${esc((p.name || relName(p.rel) || "?").slice(0, 1))}</div>
+        <div class="grow"><div style="font-weight:700;font-size:18px">${esc(p.name || relName(p.rel))}</div><div class="small muted">${relName(p.rel)} · ${T(`${n} medicines`, `${num(n)}টি ওষুধ`)}</div></div>
+        <button class="iconbtn" data-act="p-edit" data-id="${p.id}">${T("Edit","বদলান")}</button></div>
+      <div class="small"><b>${T("Diseases","রোগ")}:</b> ${p.diseases.length ? p.diseases.map(d => esc(disName(d))).join(", ") : T("none added","দেওয়া নেই")}</div>
+      <div class="small"><b>${T("Meals","খাবার")}:</b> ${["b","l","d","bed"].map(k => `${T(SLOT[k][2], SLOT[k][3])} ${fmtTime(mealsOf(p.id)[k])}`).join(" · ")}</div>
+      <div class="row"><button class="btn ghost" style="flex:1" data-act="add-for-go" data-id="${p.id}">+ ${T("Add medicine","ওষুধ যোগ")}</button>
+      ${S.profiles.length > 1 ? `<button class="btn ghost" style="color:var(--alert)" data-act="p-del" data-id="${p.id}">${T("Remove","মুছুন")}</button>` : ""}</div>
+    </div>`; }).join("")}
+  <button class="btn full" data-act="p-new">+ ${T("Add another person","আরেকজন যোগ করুন")}</button>
+  ${banner("info", T("For a family member who has their own Android phone, set the app up on their phone so the alarm rings there.","পরিবারের যে সদস্যের নিজের Android ফোন আছে, তাঁর ফোনেই অ্যাপটি সেট করে দিন, যাতে অ্যালার্ম সেখানে বাজে।"))}`;
+}
+
+/* ---- Settings ---- */
+function vSettings(){
+  const vs = voices().filter(v => /^(bn|en)/i.test(v.lang || ""));
+  return `
+  <div class="card col"><h3>${T("Language","ভাষা")}</h3><div class="seg"><button data-act="setlang" data-l="bn" aria-pressed="${S.lang === "bn"}">বাংলা</button><button data-act="setlang" data-l="en" aria-pressed="${S.lang === "en"}">English</button></div></div>
+  ${NAT ? permBanner(true) : ""}
+  <div class="card col"><h3>${T("Voice","কণ্ঠ")}</h3>
+    <label class="f">${T("Speaking speed (slower is clearer)","কথা বলার গতি (ধীরে হলে বেশি পরিষ্কার)")}<input type="range" id="s-rate" min="0.6" max="1.1" step="0.05" value="${S.voice.rate}"></label>
+    ${NAT ? `<button class="btn ghost" data-act="nat-tts">${T("Phone voice settings","ফোনের ভয়েস সেটিংস")}</button>` : ""}
+    ${!NAT && vs.length ? `<label class="f">${T("Voice","কণ্ঠস্বর")}<select class="inp" id="s-voice"><option value="">${T("Best available","সবচেয়ে ভালোটা")}</option>${vs.map(v => `<option value="${esc(v.name)}" ${S.voice.name === v.name ? "selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("")}</select></label>` : ""}
+    <button class="btn" data-act="test-voice">${ICON.speaker}${T("Listen to a sample","নমুনা শুনুন")}</button>
+    ${banner("info", T("If Bangla sounds unclear: install 'Speech Services by Google' from the Play Store, then in phone Settings → Text-to-speech choose Google and download the Bangla (Bangladesh) voice. You can also record your own voice for any medicine.","বাংলা অস্পষ্ট শোনালে: Play Store থেকে 'Speech Services by Google' ইনস্টল করুন, তারপর ফোনের Settings → Text-to-speech-এ Google বাছাই করে বাংলা (বাংলাদেশ) ভয়েস ডাউনলোড করুন। চাইলে যেকোনো ওষুধে নিজের কণ্ঠও রেকর্ড করতে পারবেন।"))}</div>
+  <div class="card col"><h3>${T("Big-button mode for elders","বয়স্কদের জন্য বড় বোতাম মোড")}</h3><p class="small muted" style="margin:0">${T("Shows only the medicines to take now, with big photos and big buttons.","শুধু এখনকার ওষুধ দেখায়, বড় ছবি আর বড় বোতাম।")}</p>
+    <button class="btn ${S.bigMode ? "" : "ghost"}" data-act="big-on">${S.bigMode ? T("On","চালু আছে") : T("Turn on","চালু করুন")}</button></div>
+  <div class="card col"><h3>${T("Alarm","অ্যালার্ম")}</h3><button class="btn" data-act="test">${T("Test alarm & voice","অ্যালার্ম ও কণ্ঠ পরীক্ষা")}</button>
+    <p class="small muted" style="margin:0">${T("Keep the volume up, don't put the phone on silent, and keep this app open.","ভলিউম বাড়িয়ে রাখুন, ফোন সাইলেন্ট করবেন না, আর অ্যাপটি খোলা রাখুন।")}</p></div>
+  <div class="card col"><button class="btn ghost" data-act="example">${T("Add example medicines to try","উদাহরণ ওষুধ যোগ করে দেখুন")}</button>
+    <button class="btn ghost" style="color:var(--alert)" data-act="reset">${T("Delete all data","সব তথ্য মুছুন")}</button></div>
+  <p class="small muted" style="margin:0">${T("This app reminds only and does not replace a doctor. If your doctor said something different, follow your doctor.","এই অ্যাপ শুধু মনে করিয়ে দেয়, ডাক্তারের বিকল্প নয়। ডাক্তার অন্যভাবে বললে ডাক্তারের কথাই মানুন।")}</p>`;
+}
+
+/* ============ Example data ============ */
+function loadExample(){
+  const pid = (S.profiles.find(p => p.rel === "me") || S.profiles[0]).id;
+  const mk = o => { const m = Object.assign(newMed(pid), o, {createdAt:Date.now()}); retime(m); return m; };
+  const plus = n => dkey(new Date(Date.now() + n * 864e5));
+  const ex = [
+    mk({name:"Seclo 20 (Omeprazole)", name_bn:"সেকলো", form:"capsule", cat:"gastric", food:"before", offset:30, times:[{slot:"b", amt:1},{slot:"d", amt:1}], stock:20}),
+    mk({name:"Clofenac 50 (Diclofenac)", name_bn:"ক্লোফেনাক", form:"tablet", cat:"nsaid", food:"after", offset:0, times:[{slot:"b", amt:1},{slot:"d", amt:1}], end:plus(4), stock:8}),
+    mk({name:"Moxifloxacin eye drop", name_bn:"মক্সিফ্লক্সাসিন চোখের ড্রপ", form:"drop", site:"both_eyes", cat:"antibiotic", mode:"clock", food:"any", times:[{t:"08:00", amt:1, custom:true},{t:"13:00", amt:1, custom:true},{t:"18:00", amt:1, custom:true},{t:"22:00", amt:1, custom:true}], end:plus(6)}),
+    mk({name:"Napa 500", name_bn:"নাপা", form:"tablet", cat:"para", mode:"sos", food:"any", times:[{t:"00:00", amt:1}], sosMax:3})
+  ];
+  ex.forEach(m => { if (!S.meds.some(x => x.name === m.name && x.profile === pid)) S.meds.push(m); });
+  S.setupDone = true; view = "home"; save(); render();
+  toast(T("Example medicines added. You can edit or delete them.","উদাহরণ ওষুধ যোগ হয়েছে। বদলাতে বা মুছতে পারবেন।"));
+}
+
+let toastT = null;
+function toast(s){ let el = document.querySelector(".toast"); if (!el){ el = document.createElement("div"); el.className = "toast"; document.body.appendChild(el); } el.textContent = s; clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 2800); }
+
+/* ============ Events ============ */
+function finishSetup(){
+  const p = setup.p;
+  if (!p.name) p.name = p.rel === "me" ? "" : relName(p.rel).split(" / ")[0];
+  const i = S.profiles.findIndex(x => x.id === p.id);
+  if (i >= 0){ S.profiles[i] = p; S.meds.filter(m => m.profile === p.id).forEach(retime); } else S.profiles.push(p);
+  save();
+}
+function saveWiz(){
+  const w = wiz, m = w.m;
+  m.end = w.days ? dkey(new Date(new Date(m.start + "T00:00").getTime() + (+w.days - 1) * 864e5)) : "";
+  if (m.mode !== "sos") m.times.sort((a, b) => toMin(a.t) - toMin(b.t));
+  if (w.mode === "review"){
+    review.items[w.idx].med = m; review.items[w.idx].unclear = false;
+    review.items[w.idx].photo = w.photo || review.items[w.idx].photo; review.items[w.idx].audio = w.audio || review.items[w.idx].audio;
+    wiz = null; view = "scan"; render(); window.scrollTo(0, 0); return;
+  }
+  const i = S.meds.findIndex(x => x.id === m.id);
+  if (i >= 0) S.meds[i] = m; else { m.createdAt = Date.now(); S.meds.push(m); }
+  if (w.photo) putBlob("photos", m.id, w.photo);
+  if (w.audio){ putBlob("audio", m.id, w.audio); try { NAT && NAT.saveClip(m.id, w.audio); } catch(e){} } else if (w.audioRemoved){ dropBlob("audio", m.id); try { NAT && NAT.deleteClip(m.id); } catch(e){} }
+  S.setupDone = true; save();
+  const pid = m.profile; wiz = null; view = "home"; S.filter = S.profiles.length > 1 ? pid : "all";
+  render(); window.scrollTo(0, 0);
+  toast(T("Saved. The alarm is set.","সেভ হয়েছে। অ্যালার্ম সেট হয়েছে।"));
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-act]");
+  if (!AC || AC.state !== "running") unlockAudio();
+  if (!b || b.disabled) return;
+  const a = b.dataset.act, m = wiz && wiz.m;
+  switch (a){
+    case "go": view = b.dataset.v; wiz = null; if (view !== "scan") review = null; render(); window.scrollTo(0, 0); break;
+    case "lang": S.lang = S.lang === "bn" ? "en" : "bn"; save(); render(); break;
+    case "setlang": S.lang = b.dataset.l; save(); render(); break;
+    case "unlock": unlockAudio(); toast(T("Alarm sound is on","অ্যালার্মের শব্দ চালু হয়েছে")); break;
+    case "start": setup = newSetup(true); view = "setup"; render(); break;
+    case "filter": S.filter = b.dataset.id; save(); render(); break;
+    // person setup
+    case "su-rel": { const p = setup.p, oldDefault = relName(p.rel).split(" / ")[0]; p.rel = b.dataset.k; if (!p.name || p.name === oldDefault) p.name = p.rel === "me" ? "" : relName(p.rel).split(" / ")[0]; render(); setTimeout(() => document.getElementById("su-name")?.focus(), 50); break; }
+    case "su-dis": { const p = setup.p, k = b.dataset.k; p.diseases = p.diseases.includes(k) ? p.diseases.filter(x => x !== k) : [...p.diseases, k]; render(); break; }
+    case "su-dis-add": { const v = document.getElementById("dis-new").value.trim(), p = setup.p; if (v && !p.custom.includes(v)){ p.custom.push(v); p.diseases.push(v); render(); } break; }
+    case "su-next":
+      if (setup.step === 0 && !setup.p.rel){ toast(T("Choose who it's for","কার জন্য বাছাই করুন")); break; }
+      if (setup.step === 0 && setup.p.rel === "me" && !setup.p.name.trim()){ toast(T("Write your name","আপনার নাম লিখুন")); document.getElementById("su-name")?.focus(); break; }
+      if (setup.step === 2){ finishSetup(); if (setup.editing){ toast(T("Saved","সেভ হয়েছে")); setup = null; view = "people"; render(); break; } }
+      setup.step++; render(); window.scrollTo(0, 0); break;
+    case "su-back":
+      if (setup.step === 0){ setup = null; view = S.profiles.length ? "people" : "welcome"; } else setup.step--;
+      render(); break;
+    case "su-later": S.setupDone = true; save(); setup = null; view = "home"; render(); break;
+    // add medicine
+    case "add": addFor = S.filter !== "all" ? S.filter : (S.profiles[0] || {}).id; view = "add"; render(); break;
+    case "add-for": addFor = b.dataset.id; render(); break;
+    case "add-for-go": addFor = b.dataset.id; view = "add"; render(); break;
+    case "new": setup = null; openWiz(newMed(b.dataset.pid || addFor || S.profiles[0].id), "new"); break;
+    case "scan": setup = null; addFor = b.dataset.pid || addFor || S.profiles[0].id; document.getElementById("file-rx").click(); break;
+    case "edit": { const x = S.meds.find(y => y.id === b.dataset.id); if (x) openWiz(x, "edit"); break; }
+    // wizard
+    case "wz-next": if (!wizValidate()) break; if (wiz.step === 1) guessPronunciation(wiz.m); wiz.step++; render(); window.scrollTo(0, 0); break;
+    case "wz-back": if (wiz.step === 1){ const back = wiz.mode === "review" ? "scan" : "home"; wiz = null; view = back; } else wiz.step--; render(); window.scrollTo(0, 0); break;
+    case "w-goto": wiz.step = +b.dataset.n; render(); window.scrollTo(0, 0); break;
+    case "w-cancel": { const back = wiz.mode === "review" ? "scan" : wiz.mode === "edit" ? "meds" : "home"; wiz = null; view = back; render(); break; }
+    case "w-form": m.form = b.dataset.k; wiz.formTouched = true; const fs = FORMS[m.form].sites; m.site = fs ? (fs.includes(m.site) ? m.site : fs[0]) : ""; m.times.forEach(x => { if (x.amt < FORMS[m.form].step) x.amt = FORMS[m.form].step; }); render(); break;
+    case "w-site": m.site = b.dataset.k; render(); break;
+    case "w-mode": setMode(m, b.dataset.k); render(); break;
+    case "w-food": m.food = b.dataset.k; m.offset = m.food === "before" ? 30 : 0; retime(m); render(); break;
+    case "w-off": m.offset = +b.dataset.n; retime(m); render(); break;
+    case "w-slot": { const s = b.dataset.s, i = m.times.findIndex(x => x.slot === s); if (i >= 0) m.times.splice(i, 1); else { m.times.push({slot:s, amt: (m.times[0] || {}).amt || 1, t:"00:00"}); retime(m); } m.times.sort((x, y) => ["b","l","d","bed"].indexOf(x.slot) - ["b","l","d","bed"].indexOf(y.slot)); render(); break; }
+    case "w-tadd": m.times.push({t: m.times.length ? fromMin(toMin(m.times[m.times.length - 1].t) + 240) : "08:00", amt: (m.times[0] || {}).amt || 1, custom:true}); render(); break;
+    case "w-tdel": m.times.splice(+b.dataset.i, 1); render(); break;
+    case "w-every": m.every = +b.dataset.n; m.times = intervalTimes(m); render(); break;
+    case "amt-up": case "amt-dn": { const i = +b.dataset.i, st = +b.dataset.s, x = m.times[i]; if (!x) break; x.amt = Math.max(st, Math.round(((+x.amt || 0) + (a === "amt-up" ? st : -st)) * 2) / 2); if (m.mode === "interval" || m.mode === "sos") m.times.forEach(y => y.amt = x.amt); render(); break; }
+    case "w-days": wiz.days = b.dataset.n; render(); break;
+    case "w-freq": m.freq = b.dataset.k; if (m.freq === "week" && !(m.weekdays || []).length) m.weekdays = [new Date().getDay()]; render(); break;
+    case "w-wd": { const i = +b.dataset.i; m.weekdays = (m.weekdays || []).includes(i) ? m.weekdays.filter(x => x !== i) : [...(m.weekdays || []), i]; render(); break; }
+    case "say-name": unlockAudio(); speakParts([{text: sayName(m) || m.name}]); break;
+    case "w-listen": { unlockAudio(); const u = wiz.audio || (!wiz.audioRemoved && A[m.id]); const tmp = {...m, end: wiz.days ? dkey(new Date(new Date(m.start + "T00:00").getTime() + (+wiz.days - 1) * 864e5)) : ""}; speakParts(u ? [{audio:u}] : doseLines({med:tmp, amt:(m.times[0] || {}).amt || 1}).map(text => ({text}))); break; }
+    case "rec": document.getElementById("file-audio").click(); break;
+    case "del-rec": wiz.audio = null; wiz.audioRemoved = true; render(); break;
+    case "photo": document.getElementById("file-photo").click(); break;
+    case "w-save": {
+      if (!m.name.trim()){ wiz.step = 1; render(); toast(T("Write the medicine name","ওষুধের নাম লিখুন")); break; }
+      if (m.mode !== "sos" && !m.times.length){ wiz.step = 3; render(); toast(T("Choose at least one time","অন্তত একটি সময় বাছাই করুন")); break; }
+      if (rulesFor(m, S.meds).some(x => x[0] === "danger") && !wiz.confirmDanger){ wiz.confirmDanger = true; render(); toast(T("Read the red warning first","আগে লাল সতর্কবার্তাটি পড়ুন")); break; }
+      saveWiz(); break;
+    }
+    case "w-pause": { const x = S.meds.find(y => y.id === m.id); x.paused = !x.paused; save(); wiz = null; view = "meds"; render(); break; }
+    case "w-del":
+      if (b.dataset.confirm !== "1"){ b.dataset.confirm = "1"; b.textContent = T("Tap again to delete","মুছতে আবার চাপুন"); break; }
+      S.meds = S.meds.filter(x => x.id !== m.id); dropBlob("photos", m.id); dropBlob("audio", m.id); save(); wiz = null; view = "meds"; render(); break;
+    // review
+    case "rv-edit": { const it = review.items[+b.dataset.i]; openWiz(it.med, "review", +b.dataset.i); wiz.step = 5; wiz.photo = it.photo || null; wiz.audio = it.audio || null; render(); break; }
+    case "rv-cancel": review = null; view = "home"; render(); break;
+    case "rv-save": {
+      const add = review.items.filter(x => x.on && x.med.name.trim());
+      add.forEach(x => { const mm = x.med; mm.createdAt = Date.now(); S.meds.push(mm); if (x.photo) putBlob("photos", mm.id, x.photo); if (x.audio) putBlob("audio", mm.id, x.audio); });
+      S.setupDone = true; save(); review = null; view = "home"; render(); window.scrollTo(0, 0);
+      toast(T(`${add.length} medicines saved. Alarms set.`, `${num(add.length)}টি ওষুধ সেভ হয়েছে। অ্যালার্ম সেট হয়েছে।`)); break;
+    }
+    // today / alarm
+    case "take": markDose(b.dataset.id, "taken"); render(); toast(T("Well done!","খুব ভালো!")); break;
+    case "sos-take": { const x = S.meds.find(y => y.id === b.dataset.id); S.log[`${dkey(new Date())}|${x.id}|sos|${Date.now()}`] = {s:"taken", at:Date.now()}; if (formOf(x).count && x.stock !== "" && x.stock != null) x.stock = Math.max(0, +x.stock - (+(x.times[0] || {}).amt || 1)); save(); render(); toast(T("Noted","লেখা হয়েছে")); break; }
+    case "open-due": { const due = dosesFor(new Date(), S.filter).filter(d => statusOf(d) === "due"); if (due.length) openAlarm(due.filter(d => d.med.profile === due[0].med.profile)); break; }
+    case "test": { unlockAudio(); const list = S.meds.filter(x => x.mode !== "sos").slice(0, 3); const t = fromMin(nowMin()); const g = list.length ? list.map(x => ({id:"test|" + x.id, t, amt:(x.times[0] || {}).amt || 1, med:x, test:true})) : [{id:"test|x", t, amt:1, test:true, med:Object.assign(newMed((S.profiles[0] || {}).id), {name:T("Test medicine","পরীক্ষার ওষুধ")})}]; const gg = g.filter(d => d.med.profile === g[0].med.profile); if (NAT){ try { NAT.testAlarm(JSON.stringify(eventFor(gg, new Date(), true))); } catch(err){ openAlarm(gg); } } else openAlarm(gg); break; }
+    case "nat-fix": try { NAT.fixSetting(b.dataset.k); } catch(err){} break;
+    case "nat-tts": try { NAT.openTtsSettings(); } catch(err){} break;
+    case "al-taken": alarmGroup.forEach(d => { if (!d.test) markDose(d.id, "taken"); }); closeAlarm(); toast(T("Well done!","খুব ভালো!")); break;
+    case "al-skip": alarmGroup.forEach(d => { if (!d.test) markDose(d.id, "skipped"); }); closeAlarm(); break;
+    case "al-snooze": alarmGroup.forEach(d => { snooze[d.id] = Date.now() + 10*60000; }); closeAlarm(); toast(T("I'll remind you in 10 minutes","১০ মিনিট পরে আবার মনে করিয়ে দেব")); break;
+    case "al-speak": speakParts(alarmParts(alarmGroup, gastricFirst(alarmGroup))); break;
+    case "al-first": markDose(b.dataset.id, "taken"); b.textContent = T("Gastric medicine taken ✓","গ্যাস্ট্রিকের ওষুধ নেওয়া হয়েছে ✓"); b.disabled = true; break;
+    case "big-on": S.bigMode = true; view = "home"; save(); render(); break;
+    case "big-off": S.bigMode = false; save(); render(); break;
+    case "big-speak": { const due = dosesFor(new Date()).filter(d => statusOf(d) === "due"); if (due.length){ const g = due.filter(d => d.med.profile === due[0].med.profile); speakParts(alarmParts(g, gastricFirst(g))); } break; }
+    // people
+    case "p-new": setup = newSetup(false); view = "setup"; render(); break;
+    case "p-edit": setup = newSetup(false, prof(b.dataset.id)); view = "setup"; render(); break;
+    case "p-del":
+      if (b.dataset.confirm !== "1"){ b.dataset.confirm = "1"; b.textContent = T("Tap again: removes their medicines too","আবার চাপুন: ওনার ওষুধও মুছে যাবে"); break; }
+      S.meds.filter(x => x.profile === b.dataset.id).forEach(x => { dropBlob("photos", x.id); dropBlob("audio", x.id); });
+      S.meds = S.meds.filter(x => x.profile !== b.dataset.id); S.profiles = S.profiles.filter(p => p.id !== b.dataset.id); S.filter = "all"; save(); render(); break;
+    // settings
+    case "test-voice": unlockAudio(); speakParts(S.lang === "bn" ? [{text:"নয়ন, ওষুধের সময় হয়েছে।"},{text:"এখন মোট দুইটি ওষুধ।"},{text:"প্রথম ওষুধ:"},{text:"সেকলো।"},{text:"একটি ক্যাপসুল।"},{text:"খাওয়ার ত্রিশ মিনিট আগে।"},{text:"দ্বিতীয় ওষুধ:"},{text:"চোখের ড্রপ।"},{text:"দুই চোখে দুই ফোঁটা করে।"}] : [{text:"It is medicine time."},{text:"Two medicines now."},{text:"Number one: Seclo. One capsule, 30 minutes before food."}]); break;
+    case "example": loadExample(); break;
+    case "reset":
+      if (b.dataset.confirm !== "1"){ b.dataset.confirm = "1"; b.textContent = T("Tap again: this deletes everything","আবার চাপুন: সব মুছে যাবে"); break; }
+      Object.keys(P).forEach(k => dropBlob("photos", k)); Object.keys(A).forEach(k => dropBlob("audio", k));
+      S = Object.assign(structuredClone(DEFAULT), {lang:S.lang}); view = "welcome"; setup = null; save(); render(); break;
+  }
+});
+document.addEventListener("input", e => {
+  const el = e.target, id = el.id || "";
+  if (view === "setup" && setup){
+    if (id === "su-name") setup.p.name = el.value;
+    else if (id.startsWith("su-meal-") && el.value) setup.p.meals[id.slice(8)] = el.value;
+  }
+  if (view === "wiz" && wiz){
+    const m = wiz.m;
+    if (id === "w-name"){ m.name = el.value; if (!wiz.catTouched) m.cat = detectCat(el.value); if (!wiz.formTouched){ const f = detectForm(el.value); if (f){ m.form = f; const fs = FORMS[f].sites; m.site = fs ? fs[0] : ""; } } }
+    else if (id === "w-namebn") m.name_bn = el.value;
+    else if (id === "w-cat"){ m.cat = el.value; wiz.catTouched = true; }
+    else if (id === "w-sitetext") m.siteText = el.value;
+    else if (id === "w-daysn") wiz.days = el.value;
+    else if (id === "w-start") m.start = el.value || dkey(new Date());
+    else if (id === "w-stock") m.stock = el.value;
+    else if (id === "w-note") m.note = el.value;
+    else if (id === "w-sosmax") m.sosMax = el.value;
+    else if (id === "w-first" && el.value){ m.first = el.value; m.times = intervalTimes(m); }
+    else if (id.startsWith("tm-") && el.value){ const x = m.times[+el.dataset.i]; x.t = el.value; x.custom = true; }
+    else if (id.startsWith("amt-") && +el.value > 0){ const x = m.times[+el.dataset.i]; x.amt = +el.value; if (m.mode === "interval" || m.mode === "sos") m.times.forEach(y => y.amt = x.amt); }
+  }
+  if (view === "settings"){
+    if (id === "s-rate"){ S.voice.rate = +el.value; save(); }
+  }
+});
+document.addEventListener("change", e => {
+  const el = e.target, id = el.id || "";
+  if (view === "wiz" && wiz && (id === "w-daysn" || id === "w-start" || id === "w-first")) render();
+  if (view === "settings" && id === "s-voice"){ S.voice.name = el.value; save(); }
+  if (view === "scan" && review && el.dataset.rvon != null){ review.items[+el.dataset.rvon].on = el.checked; render(); }
+});
+document.getElementById("file-photo").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f || !wiz) return;
+  try { const img = await loadImg(f); wiz.photo = scaleTo(img, 220).toDataURL("image/jpeg", 0.72); render(); } catch(err){ toast(T("Couldn't open that photo","ছবিটি খোলা যায়নি")); }
+});
+document.getElementById("file-rx").addEventListener("change", e => { const fs = [...e.target.files]; e.target.value = ""; if (fs.length) scanFiles(fs, addFor || S.profiles[0].id); });
+document.getElementById("file-audio").addEventListener("change", e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f || !wiz) return;
+  if (f.size > 900000){ toast(T("Too long. Keep it under 20 seconds.","অনেক লম্বা। ২০ সেকেন্ডের কম রাখুন।")); return; }
+  const r = new FileReader(); r.onload = () => { wiz.audio = r.result; wiz.audioRemoved = false; render(); toast(T("Voice added","কণ্ঠ যোগ হয়েছে")); }; r.readAsDataURL(f);
+});
+
+/* ============ Boot ============ */
+loadLocal();
+view = S.setupDone ? "home" : (S.profiles.length ? "setup" : "welcome");
+if (view === "setup") setup = Object.assign(newSetup(true), {step:3, p:S.profiles[0]});
+render();
+setInterval(() => { checkAlarms(); if (!alarmGroup && view === "home" && !document.activeElement?.matches("input,select")) render(); }, 15000);
+setTimeout(checkAlarms, 1500);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkAlarms(); });
+try { speechSynthesis.onvoiceschanged = () => { if (view === "settings") render(); }; } catch(e){}
+if (NAT){ try { Object.entries(A).forEach(([k, u]) => NAT.saveClip(k, u)); } catch(e){} window.onNativeResume(); }
+(async () => {
+  await initCloud();
+  try { TTS = window.claude ? await claude.use("tts") : null; } catch(e){ TTS = null; }
+  try { if (!SAMPLE && window.claude) SAMPLE = await claude.use("sample"); } catch(e){}
+})();
+</script>
+</body>
+</html>

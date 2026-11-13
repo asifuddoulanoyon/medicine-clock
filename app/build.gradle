@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+def runNo = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
+
+android {
+    namespace 'com.noyon.medclock'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.noyon.medclock"
+        minSdk 26
+        targetSdk 34
+        versionCode runNo
+        versionName "1.0." + runNo
+    }
+
+    // A fixed key so every new APK installs as an update over the old one
+    signingConfigs {
+        release {
+            storeFile file("medclock.keystore")
+            storePassword "medclock123"
+            keyAlias "medclock"
+            keyPassword "medclock123"
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
