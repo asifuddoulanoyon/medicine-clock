@@ -23,6 +23,35 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Add the offline Bangla voice and its speech engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          V=v1.12.15
+          curl -sSL -o model.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-coqui-bn-custom_female.tar.bz2
+          tar xjf model.tar.bz2
+          pip install --quiet onnx==1.16.2 onnxruntime==1.18.1
+          mkdir -p app/src/main/assets/bntts
+          python scripts/quantize.py vits-coqui-bn-custom_female/model.onnx app/src/main/assets/bntts/model.int8.onnx
+          cp vits-coqui-bn-custom_female/tokens.txt app/src/main/assets/bntts/
+          ls -la app/src/main/assets/bntts
+          curl -sSL -o android.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/$V/sherpa-onnx-$V-android.tar.bz2
+          mkdir -p jl && tar xjf android.tar.bz2 -C jl
+          for abi in arm64-v8a armeabi-v7a; do
+            mkdir -p app/src/main/jniLibs/$abi
+            cp jl/jniLibs/$abi/libsherpa-onnx-jni.so jl/jniLibs/$abi/libonnxruntime.so app/src/main/jniLibs/$abi/
+          done
+          # Check the shrunk voice on Linux and keep a sample for review
+          curl -sSL -o lin.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/$V/sherpa-onnx-$V-linux-x64-shared.tar.bz2
+          tar xjf lin.tar.bz2
+          LD_LIBRARY_PATH=$PWD/sherpa-onnx-$V-linux-x64-shared/lib ./sherpa-onnx-$V-linux-x64-shared/bin/sherpa-onnx-offline-tts \
+            --vits-model=app/src/main/assets/bntts/model.int8.onnx --vits-tokens=app/src/main/assets/bntts/tokens.txt \
+            --vits-length-scale=1.1 --output-filename=voice-check.wav "ফেক্সোফাস্ট। আলাট্রোল। রানিটিডিন। জিজোলিন।"
+
       - name: Build the APK
         shell: bash
         run: |
@@ -43,7 +72,9 @@ jobs:
           body: |
             ফোনে **MedicineClock.apk** ডাউনলোড করে ইনস্টল করুন।
             Download **MedicineClock.apk** on your Android phone and install it.
-          files: MedicineClock.apk
+          files: |
+            MedicineClock.apk
+            voice-check.wav
           make_latest: true
 
       - name: Save the build log if it failed

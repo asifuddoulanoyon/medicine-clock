@@ -525,6 +525,135 @@ function doseLines(d){
   return out;
 }
 
+/* English brand name -> Bangla script, the way people in Bangladesh say medicine names.
+   Used so a Bangla voice can read names like "Fexofast" -> "ফেক্সোফাস্ট". */
+(function (root) {
+  const CONS = {
+    b:"ব", c:"ক", d:"ড", f:"ফ", g:"গ", h:"হ", j:"জ", k:"ক", l:"ল", m:"ম", n:"ন", p:"প", q:"ক",
+    r:"র", s:"স", t:"ট", v:"ভ", w:"ও", x:"ক্স", z:"জ"
+  };
+  const DIGRAPH = { ph:"ফ", sh:"শ", ch:"চ", th:"থ", kh:"খ", gh:"ঘ", ck:"ক", qu:"কু", wh:"ও", dh:"ধ", bh:"ভ" };
+  const V_IND = { a:"আ", e:"এ", i:"ই", o:"ও", u:"উ", y:"ই" };     // vowel at the start of a word / after a vowel
+  const V_SIGN = { a:"া", e:"ে", i:"ি", o:"ো", u:"ু", y:"ি" };      // vowel after a consonant
+  const VOW = "aeiouy";
+  const isV = ch => VOW.includes(ch);
+
+  function word(w) {
+    w = w.toLowerCase().replace(/[^a-z]/g, "");
+    if (!w) return "";
+    // common endings first
+    w = w.replace(/tion$/, "শন").replace(/sion$/, "শন");
+    // silent final e after a consonant (fexofenadine -> fexofenadin), not in short words
+    w = w.replace(/ate$/, "েট").replace(/age$/, "েজ").replace(/ium$/, "িয়াম");
+    if (w.length > 3 && /[^aeiouy]e$/.test(w)) w = w.slice(0, -1);
+    w = w.replace(/^x/, "z").replace(/eu/g, "iu");
+    // double consonants are said once
+    w = w.replace(/([b-df-hj-np-tv-z])\1/g, "$1");
+    const out = [];
+    let i = 0, prevCons = false;
+    while (i < w.length) {
+      if (/[ঀ-৿]/.test(w[i])) { out.push(w.slice(i)); break; }   // already-converted ending
+      const two = w.slice(i, i + 2), ch = w[i], next = w[i + 1] || "";
+      // vowels and vowel pairs
+      if (isV(ch) && !(ch === "y" && i === 0 && next && isV(next))) {
+        let v = ch, len = 1, sign, ind;
+        if (two === "ai" || two === "ay") { sign = "াই"; ind = "আই"; len = 2; }
+        else if (two === "ei" || two === "ey") { sign = "েই"; ind = "এই"; len = 2; }
+        else if (two === "ee" || two === "ea" || two === "ie") { sign = "ি"; ind = "ই"; len = 2; }
+        else if (two === "oo" || two === "ou") { sign = "ু"; ind = "উ"; len = 2; }
+        else if (two === "au" || two === "aw") { sign = ""; ind = "অ"; len = 2; }
+        else if (two === "oi" || two === "oy") { sign = "য়"; ind = "অয়"; len = 2; }   // handled loosely
+        else { sign = V_SIGN[v]; ind = V_IND[v]; }
+        if (prevCons && out.length) {
+          // remove the joining mark we put after the last consonant
+          if (out[out.length - 1] === "্") out.pop();
+          out.push(sign);
+        } else out.push(ind);
+        prevCons = false; i += len; continue;
+      }
+      // consonants
+      let c, len = 1;
+      if (DIGRAPH[two]) { c = DIGRAPH[two]; len = 2; }
+      else if (ch === "c") c = /[eiy]/.test(next) ? "স" : "ক";
+      else if (ch === "g") c = /[eiy]/.test(next) ? "জ" : "গ";
+      else if (ch === "y") c = "ইয়";
+      else if (ch === "n" && next === "g" && !isV(w[i + 2] || "")) { c = "ং"; len = 2; }
+      else if (ch === "n" && (next === "k" || (next === "c" && !/[eiy]/.test(w[i + 2] || "")))) c = "ঙ";
+      else c = CONS[ch] || "";
+      if (!c) { i++; continue; }
+      if (c === "ঙ"){ out.push("ঙ্"); prevCons = false; i += len; continue; }
+      out.push(c);
+      prevCons = !/[ংইয়ও]$/.test(c) || c === "ক্স";
+      // join to the next consonant (cluster) unless we are at the end of the word
+      const after = w[i + len] || "", after2 = w[i + len + 1] || "";
+      const join = prevCons && after && !isV(after) && c !== "ং" && (
+        "rl".includes(after) ||                                   // ফ্ল, ট্র, প্র, গ্ল
+        (c === "স" && "tpk".includes(after)) ||                    // স্ট, স্প, স্ক
+        (c === "ন" && "td".includes(after)) || (c === "ম" && "pb".includes(after)) ||
+        (c === "ক্স" && after === "t"));
+      if (join) out.push("্");
+      i += len;
+    }
+    let s = out.join("");
+    s = s.replace(/্$/, "").replace(/্্/g, "্");
+    // "r" before another consonant is written as reph: র্ক is fine as is
+    return s;
+  }
+
+  function translit(name) {
+    const clean = String(name || "")
+      .replace(/\(.*?\)/g, " ")
+      .replace(/(\d+(\.\d+)?)\s*(mg|mcg|ml|gm|g|iu|%)\b/gi, " ")
+      .replace(/\b(tab|tablet|tabs|cap|caps|capsule|syrup|syp|susp|suspension|drop|drops|e\/d|cream|oint|ointment|gel|inj|injection|inhaler|sr|xr|er|mr|ds|forte|plus|extra|extend)\b/gi, m => " " + m + " ")
+      .replace(/\d+/g, " ");
+    const extra = { plus: "প্লাস", extra: "এক্সট্রা", extend: "এক্সটেন্ড", forte: "ফোর্ট", ds: "ডিএস", sr: "এসআর", xr: "এক্সআর", er: "ইআর", mr: "এমআর",
+      drop: "ড্রপ", drops: "ড্রপ", syrup: "সিরাপ", cream: "ক্রিম", gel: "জেল", inhaler: "ইনহেলার", tab: "", tablet: "", tabs: "", cap: "", caps: "", capsule: "",
+      syp: "সিরাপ", susp: "সাসপেনশন", suspension: "সাসপেনশন", "e/d": "আই ড্রপ", oint: "মলম", ointment: "মলম", inj: "ইনজেকশন", injection: "ইনজেকশন",
+      eye: "আই", ear: "ইয়ার", nasal: "নেজাল", spray: "স্প্রে" };
+    const LETTER = {a:"এ",b:"বি",c:"সি",d:"ডি",e:"ই",f:"এফ",g:"জি",h:"এইচ",i:"আই",j:"জে",k:"কে",l:"এল",m:"এম",n:"এন",o:"ও",p:"পি",q:"কিউ",r:"আর",s:"এস",t:"টি",u:"ইউ",v:"ভি",w:"ডব্লিউ",x:"এক্স",y:"ওয়াই",z:"জেড"};
+    return clean.replace(/-/g, " ").split(/\s+/).filter(Boolean).map(t => {
+      const k = t.toLowerCase();
+      if (k in extra) return extra[k];
+      if (k.length === 1 && LETTER[k]) return LETTER[k];
+      if (/[ঀ-৿]/.test(t)) return t;
+      return word(t);
+    }).filter(Boolean).join(" ");
+  }
+  root.translitName = translit;
+  if (typeof module !== "undefined") module.exports = translit;
+})(typeof window !== "undefined" ? window : globalThis);
+
+
+/* ---- Medicine names in the same Bangla voice ----
+   1) ~200 common Bangladeshi medicine names recorded in the app's Bangla voice (voice/n_*.mp3)
+   2) any other name: converted to Bangla letters and spoken by the offline Bangla voice inside the Android app */
+const NAME_LIB = {"napa": "n_napa", "napa extra": "n_napa_extra", "napa extend": "n_napa_extend", "ace": "n_ace", "ace plus": "n_ace_plus", "fast": "n_fast", "renova": "n_renova", "tamen": "n_tamen", "xpa": "n_xpa", "paracetamol": "n_paracetamol", "seclo": "n_seclo", "losectil": "n_losectil", "omep": "n_omep", "omeprazole": "n_omeprazole", "sergel": "n_sergel", "maxpro": "n_maxpro", "nexum": "n_nexum", "esoral": "n_esoral", "esonix": "n_esonix", "esomeprazole": "n_esomeprazole", "pantonix": "n_pantonix", "pantodac": "n_pantodac", "pantoprazole": "n_pantoprazole", "finix": "n_finix", "rabeprazole": "n_rabeprazole", "neotack": "n_neotack", "ranitidine": "n_ranitidine", "famotidine": "n_famotidine", "entacyd plus": "n_entacyd_plus", "antacid": "n_antacid", "flatameal": "n_flatameal", "avlocid": "n_avlocid", "motigut": "n_motigut", "domperon": "n_domperon", "omidon": "n_omidon", "domperidone": "n_domperidone", "emistat": "n_emistat", "ondansetron": "n_ondansetron", "clofenac": "n_clofenac", "diclofenac": "n_diclofenac", "flexi": "n_flexi", "aceclofenac": "n_aceclofenac", "naprosyn": "n_naprosyn", "naproxen": "n_naproxen", "rolac": "n_rolac", "ketorolac": "n_ketorolac", "toradol": "n_toradol", "etorix": "n_etorix", "arcoxia": "n_arcoxia", "etoricoxib": "n_etoricoxib", "ibuprofen": "n_ibuprofen", "brufen": "n_brufen", "indomet": "n_indomet", "fexo": "n_fexo", "fexofast": "n_fexofast", "fexofenadine": "n_fexofenadine", "alatrol": "n_alatrol", "cetirizine": "n_cetirizine", "histacin": "n_histacin", "rupa": "n_rupa", "deslor": "n_deslor", "loratadine": "n_loratadine", "monas": "n_monas", "montene": "n_montene", "odmon": "n_odmon", "montelukast": "n_montelukast", "tusca": "n_tusca", "ambrox": "n_ambrox", "adovas": "n_adovas", "zimax": "n_zimax", "azithrocin": "n_azithrocin", "azithromycin": "n_azithromycin", "tridosil": "n_tridosil", "cef-3": "n_cef_3", "cefixime": "n_cefixime", "ciprocin": "n_ciprocin", "ciprofloxacin": "n_ciprofloxacin", "neofloxin": "n_neofloxin", "levox": "n_levox", "levofloxacin": "n_levofloxacin", "moxaclav": "n_moxaclav", "moxacil": "n_moxacil", "amoxicillin": "n_amoxicillin", "fimoxyl": "n_fimoxyl", "ficlox": "n_ficlox", "flucloxacillin": "n_flucloxacillin", "filmet": "n_filmet", "flagyl": "n_flagyl", "metronidazole": "n_metronidazole", "amodis": "n_amodis", "doxicap": "n_doxicap", "doxycycline": "n_doxycycline", "sefur": "n_sefur", "cefuroxime": "n_cefuroxime", "kilbac": "n_kilbac", "cefotil": "n_cefotil", "sefrad": "n_sefrad", "moxiflox": "n_moxiflox", "moxifloxacin": "n_moxifloxacin", "osartil": "n_osartil", "angilock": "n_angilock", "losartan": "n_losartan", "amdocal": "n_amdocal", "camlodin": "n_camlodin", "amlodipine": "n_amlodipine", "bizoran": "n_bizoran", "bisocor": "n_bisocor", "concor": "n_concor", "bisoprolol": "n_bisoprolol", "tenoloc": "n_tenoloc", "atenolol": "n_atenolol", "olmesan": "n_olmesan", "olmesartan": "n_olmesartan", "telmisartan": "n_telmisartan", "frusin": "n_frusin", "lasix": "n_lasix", "furosemide": "n_furosemide", "ecosprin": "n_ecosprin", "aspirin": "n_aspirin", "clopid": "n_clopid", "anclog": "n_anclog", "clopidogrel": "n_clopidogrel", "atova": "n_atova", "atorvastatin": "n_atorvastatin", "rosuva": "n_rosuva", "rosuvastatin": "n_rosuvastatin", "nitrocard": "n_nitrocard", "comet": "n_comet", "comet xr": "n_comet_xr", "metformin": "n_metformin", "secrin": "n_secrin", "diamicron": "n_diamicron", "gliclazide": "n_gliclazide", "amaryl": "n_amaryl", "glimepiride": "n_glimepiride", "linita": "n_linita", "trajenta": "n_trajenta", "linagliptin": "n_linagliptin", "galvus": "n_galvus", "sitagliptin": "n_sitagliptin", "jardiance": "n_jardiance", "empagliflozin": "n_empagliflozin", "insulatard": "n_insulatard", "mixtard": "n_mixtard", "actrapid": "n_actrapid", "novomix": "n_novomix", "novorapid": "n_novorapid", "lantus": "n_lantus", "humulin": "n_humulin", "insulin": "n_insulin", "thyrox": "n_thyrox", "eltroxin": "n_eltroxin", "levothyroxine": "n_levothyroxine", "calbo-d": "n_calbo_d", "calbo": "n_calbo", "coralcal-d": "n_coralcal_d", "aristocal-d": "n_aristocal_d", "ostocal-d": "n_ostocal_d", "calcium": "n_calcium", "ceevit": "n_ceevit", "vitamin c": "n_vitamin_c", "vitamin d": "n_vitamin_d", "bextram gold": "n_bextram_gold", "neuro-b": "n_neuro_b", "zinc": "n_zinc", "folic acid": "n_folic_acid", "iron": "n_iron", "rivotril": "n_rivotril", "clonatril": "n_clonatril", "disopan": "n_disopan", "clonazepam": "n_clonazepam", "sedil": "n_sedil", "diazepam": "n_diazepam", "easium": "n_easium", "lexotanil": "n_lexotanil", "alprazolam": "n_alprazolam", "zolium": "n_zolium", "melatonin": "n_melatonin", "pregaba": "n_pregaba", "pregabalin": "n_pregabalin", "gabapentin": "n_gabapentin", "orsaline-n": "n_orsaline_n", "ors": "n_ors", "avolac": "n_avolac", "lactulose": "n_lactulose", "ventolin": "n_ventolin", "azmasol": "n_azmasol", "salbutamol": "n_salbutamol", "seretide": "n_seretide", "symbicort": "n_symbicort", "prednisolone": "n_prednisolone", "deltasone": "n_deltasone", "betnovate": "n_betnovate", "neosporin": "n_neosporin", "fungidal": "n_fungidal", "clotrimazole": "n_clotrimazole", "burnol": "n_burnol", "otrivin": "n_otrivin", "xylometazoline": "n_xylometazoline", "chloramphenicol": "n_chloramphenicol", "acular": "n_acular", "tobradex": "n_tobradex"};
+const NAME_LIB_BN = {"নাপা": "n_napa", "নাপা এক্সট্রা": "n_napa_extra", "নাপা এক্সটেন্ড": "n_napa_extend", "এইস": "n_ace", "এইস প্লাস": "n_ace_plus", "ফাস্ট": "n_fast", "রেনোভা": "n_renova", "টামেন": "n_tamen", "এক্সপা": "n_xpa", "প্যারাসিটামল": "n_paracetamol", "সেকলো": "n_seclo", "লোসেকটিল": "n_losectil", "ওমেপ": "n_omep", "ওমিপ্রাজল": "n_omeprazole", "সারজেল": "n_sergel", "ম্যাক্সপ্রো": "n_maxpro", "নেক্সাম": "n_nexum", "ইসোরাল": "n_esoral", "ইসোনিক্স": "n_esonix", "ইসোমিপ্রাজল": "n_esomeprazole", "প্যান্টোনিক্স": "n_pantonix", "প্যান্টোড্যাক": "n_pantodac", "প্যান্টোপ্রাজল": "n_pantoprazole", "ফিনিক্স": "n_finix", "র‍্যাবিপ্রাজল": "n_rabeprazole", "নিওট্যাক": "n_neotack", "র‍্যানিটিডিন": "n_ranitidine", "ফ্যামোটিডিন": "n_famotidine", "এন্টাসিড প্লাস": "n_entacyd_plus", "এন্টাসিড": "n_antacid", "ফ্ল্যাটামিল": "n_flatameal", "অ্যাভলোসিড": "n_avlocid", "মোটিগাট": "n_motigut", "ডমপেরন": "n_domperon", "ওমিডন": "n_omidon", "ডমপেরিডন": "n_domperidone", "এমিস্ট্যাট": "n_emistat", "অনড্যানসেট্রন": "n_ondansetron", "ক্লোফেনাক": "n_clofenac", "ডাইক্লোফেনাক": "n_diclofenac", "ফ্লেক্সি": "n_flexi", "এসিক্লোফেনাক": "n_aceclofenac", "ন্যাপ্রোসিন": "n_naprosyn", "ন্যাপ্রোক্সেন": "n_naproxen", "রোলাক": "n_rolac", "কেটোরোলাক": "n_ketorolac", "টোরাডল": "n_toradol", "ইটোরিক্স": "n_etorix", "আরকক্সিয়া": "n_arcoxia", "ইটোরিকক্সিব": "n_etoricoxib", "আইবুপ্রোফেন": "n_ibuprofen", "ব্রুফেন": "n_brufen", "ইন্ডোমেট": "n_indomet", "ফেক্সো": "n_fexo", "ফেক্সোফাস্ট": "n_fexofast", "ফেক্সোফেনাডিন": "n_fexofenadine", "অ্যালাট্রল": "n_alatrol", "সেটিরিজিন": "n_cetirizine", "হিস্টাসিন": "n_histacin", "রুপা": "n_rupa", "ডেসলর": "n_deslor", "লোরাটাডিন": "n_loratadine", "মোনাস": "n_monas", "মন্টেন": "n_montene", "অডমন": "n_odmon", "মন্টেলুকাস্ট": "n_montelukast", "টাসকা": "n_tusca", "অ্যামব্রক্স": "n_ambrox", "অ্যাডোভাস": "n_adovas", "জিম্যাক্স": "n_zimax", "অ্যাজিথ্রোসিন": "n_azithrocin", "অ্যাজিথ্রোমাইসিন": "n_azithromycin", "ট্রাইডোসিল": "n_tridosil", "সেফ থ্রি": "n_cef_3", "সেফিক্সিম": "n_cefixime", "সিপ্রোসিন": "n_ciprocin", "সিপ্রোফ্লক্সাসিন": "n_ciprofloxacin", "নিওফ্লক্সিন": "n_neofloxin", "লেভক্স": "n_levox", "লিভোফ্লক্সাসিন": "n_levofloxacin", "মক্সাক্ল্যাভ": "n_moxaclav", "মক্সাসিল": "n_moxacil", "অ্যামোক্সিসিলিন": "n_amoxicillin", "ফিমক্সিল": "n_fimoxyl", "ফিক্লক্স": "n_ficlox", "ফ্লুক্লক্সাসিলিন": "n_flucloxacillin", "ফিলমেট": "n_filmet", "ফ্ল্যাজিল": "n_flagyl", "মেট্রোনিডাজল": "n_metronidazole", "অ্যামোডিস": "n_amodis", "ডক্সিক্যাপ": "n_doxicap", "ডক্সিসাইক্লিন": "n_doxycycline", "সেফুর": "n_sefur", "সেফুরক্সিম": "n_cefuroxime", "কিলব্যাক": "n_kilbac", "সেফোটিল": "n_cefotil", "সেফ্রাড": "n_sefrad", "মক্সিফ্লক্স": "n_moxiflox", "মক্সিফ্লক্সাসিন": "n_moxifloxacin", "ওসারটিল": "n_osartil", "অ্যাঞ্জিলক": "n_angilock", "লোসারটান": "n_losartan", "অ্যামডোক্যাল": "n_amdocal", "ক্যামলোডিন": "n_camlodin", "অ্যামলোডিপিন": "n_amlodipine", "বাইজোরান": "n_bizoran", "বাইসোকর": "n_bisocor", "কনকর": "n_concor", "বাইসোপ্রোলল": "n_bisoprolol", "টেনোলক": "n_tenoloc", "অ্যাটেনোলল": "n_atenolol", "ওলমেসান": "n_olmesan", "ওলমেসারটান": "n_olmesartan", "টেলমিসারটান": "n_telmisartan", "ফ্রুসিন": "n_frusin", "ল্যাসিক্স": "n_lasix", "ফুরোসেমাইড": "n_furosemide", "ইকোস্প্রিন": "n_ecosprin", "অ্যাসপিরিন": "n_aspirin", "ক্লোপিড": "n_clopid", "অ্যানক্লগ": "n_anclog", "ক্লোপিডোগ্রেল": "n_clopidogrel", "অ্যাটোভা": "n_atova", "অ্যাটরভাস্ট্যাটিন": "n_atorvastatin", "রসুভা": "n_rosuva", "রসুভাস্ট্যাটিন": "n_rosuvastatin", "নাইট্রোকার্ড": "n_nitrocard", "কমেট": "n_comet", "কমেট এক্সআর": "n_comet_xr", "মেটফরমিন": "n_metformin", "সেক্রিন": "n_secrin", "ডায়ামাইক্রন": "n_diamicron", "গ্লিক্লাজাইড": "n_gliclazide", "অ্যামারিল": "n_amaryl", "গ্লিমেপিরাইড": "n_glimepiride", "লিনিটা": "n_linita", "ট্রাজেন্টা": "n_trajenta", "লিনাগ্লিপটিন": "n_linagliptin", "গ্যালভাস": "n_galvus", "সিটাগ্লিপটিন": "n_sitagliptin", "জার্ডিয়ান্স": "n_jardiance", "এমপাগ্লিফ্লোজিন": "n_empagliflozin", "ইনসুলাটার্ড": "n_insulatard", "মিক্সটার্ড": "n_mixtard", "অ্যাকট্র্যাপিড": "n_actrapid", "নোভোমিক্স": "n_novomix", "নোভোর‍্যাপিড": "n_novorapid", "ল্যান্টাস": "n_lantus", "হিউমুলিন": "n_humulin", "ইনসুলিন": "n_insulin", "থাইরক্স": "n_thyrox", "এলট্রক্সিন": "n_eltroxin", "লিভোথাইরক্সিন": "n_levothyroxine", "ক্যালবো ডি": "n_calbo_d", "ক্যালবো": "n_calbo", "কোরালক্যাল ডি": "n_coralcal_d", "অ্যারিস্টোক্যাল ডি": "n_aristocal_d", "অস্টোক্যাল ডি": "n_ostocal_d", "ক্যালসিয়াম": "n_calcium", "সিভিট": "n_ceevit", "ভিটামিন সি": "n_vitamin_c", "ভিটামিন ডি": "n_vitamin_d", "বেক্সট্রাম গোল্ড": "n_bextram_gold", "নিউরো বি": "n_neuro_b", "জিংক": "n_zinc", "ফলিক অ্যাসিড": "n_folic_acid", "আয়রন": "n_iron", "রিভোট্রিল": "n_rivotril", "ক্লোনাট্রিল": "n_clonatril", "ডিসোপ্যান": "n_disopan", "ক্লোনাজেপাম": "n_clonazepam", "সেডিল": "n_sedil", "ডায়াজেপাম": "n_diazepam", "ইজিয়াম": "n_easium", "লেক্সোটানিল": "n_lexotanil", "অ্যালপ্রাজোলাম": "n_alprazolam", "জোলিয়াম": "n_zolium", "মেলাটোনিন": "n_melatonin", "প্রেগাবা": "n_pregaba", "প্রিগাবালিন": "n_pregabalin", "গ্যাবাপেন্টিন": "n_gabapentin", "ওরস্যালাইন এন": "n_orsaline_n", "ও আর এস": "n_ors", "অ্যাভোল্যাক": "n_avolac", "ল্যাকটুলোজ": "n_lactulose", "ভেন্টোলিন": "n_ventolin", "অ্যাজমাসল": "n_azmasol", "সালবিউটামল": "n_salbutamol", "সেরেটাইড": "n_seretide", "সিমবিকর্ট": "n_symbicort", "প্রেডনিসোলন": "n_prednisolone", "ডেল্টাসোন": "n_deltasone", "বেটনোভেট": "n_betnovate", "নিওস্পোরিন": "n_neosporin", "ফাঙ্গিডাল": "n_fungidal", "ক্লোট্রিমাজল": "n_clotrimazole", "বার্নল": "n_burnol", "অট্রিভিন": "n_otrivin", "জাইলোমেটাজোলিন": "n_xylometazoline", "ক্লোরামফেনিকল": "n_chloramphenicol", "অ্যাকুলার": "n_acular", "টোব্রাডেক্স": "n_tobradex"};
+function normName(s){
+  return String(s || "").toLowerCase().replace(/\(.*?\)/g, " ")
+    .replace(/(\d+(\.\d+)?)\s*(mg|mcg|ml|gm|g|iu|%)\b/g, " ")
+    .replace(/\b(tab|tablet|tabs|cap|caps|capsule|syrup|syp|susp|suspension|drop|drops|eye|ear|nasal|e\/d|cream|oint|ointment|gel|inj|injection|inhaler|spray|sr|mr|er|ds|forte)\b/g, " ")
+    .replace(/[^a-z0-9\- ]/g, " ").replace(/\s+/g, " ").trim();
+}
+function libClip(m){
+  const bnName = String(m.name || "").trim();
+  if (NAME_LIB_BN[bnName]) return NAME_LIB_BN[bnName];
+  if (m.name_bn && NAME_LIB_BN[m.name_bn.trim()]) return NAME_LIB_BN[m.name_bn.trim()];
+  const n = normName(m.name), w = n.split(" ");
+  const tries = [n, n.replace(/ \d+$/, ""), w.slice(0, 2).join(" "), w[0], (w[0] || "").replace(/-/g, "")];
+  for (const t of tries) if (t && NAME_LIB[t]) return NAME_LIB[t];
+  // generic name written in brackets, e.g. "Seclo 20 (Omeprazole)"
+  const g = /\(([^)]+)\)/.exec(m.name || ""); if (g && NAME_LIB[g[1].toLowerCase().trim()]) return NAME_LIB[g[1].toLowerCase().trim()];
+  return null;
+}
+function banglaName(m){ return (m.name_bn && m.name_bn.trim()) || (/[\u0980-\u09FF]/.test(m.name || "") ? m.name : translitName(m.name)); }
+function ensureNameVoice(m, force){
+  if (!NAT || libClip(m)) return;
+  try { (force ? NAT.makeName : NAT.ensureName).call(NAT, m.id + "_nm", banglaName(m) + "।"); } catch(e){}
+}
+const nameWait = {};
+window.__nameReady = (id, ok) => { const r = nameWait[id]; if (r){ delete nameWait[id]; r(ok); } };
+
 /* Built-in Bangla voice: recorded phrases shipped with the app (voice/*.mp3), so no download is needed.
    Medicine names are read by the phone's voice (English brand names) or a recording made by the user. */
 const VOICE_DIR = "voice/";
@@ -544,10 +673,10 @@ function foodClip(m){
 }
 function englishName(m){ const s = String(m.name || "").replace(/\(.*?\)/g, "").replace(/(\d+(\.\d+)?)\s*(mg|mcg|ml|gm|g|%|iu)\b/gi, "").replace(/\s+/g, " ").trim(); return /[a-z]/i.test(s) ? s : ""; }
 function nameParts(m){
+  const lc = libClip(m); if (lc) return [{c:lc}];
   const en = englishName(m);
-  if (m.name_bn) return [{t:m.name_bn, l:"bn", fb:en, alt: en ? "" : "this_med"}];
-  if (en) return [{t:en, l:"en"}];
-  return [{t:m.name, l:"bn", fb:"", alt:"this_med"}];
+  if (NAT) return [{nm:m.id, bt:banglaName(m) + "।", fb:en}];
+  return [{t:banglaName(m), l:"bn", fb:en, alt: en ? "" : "this_med"}];
 }
 function doseClipParts(d){
   const m = d.med, out = [], site = m.site && m.site !== "other" && !m.siteText && SITES[m.site] ? "s_" + m.site : null;
@@ -590,6 +719,15 @@ function speakParts(parts){
     for (const p of parts){
       if (my !== speakToken) return;
       if (p.c){ await play(VOICE_DIR + p.c + ".mp3"); await new Promise(r => setTimeout(r, 110)); continue; }
+      if (p.nm){
+        const id = p.nm + "_nm"; let url = ""; try { url = NAT.clipUrl(id); } catch(e){}
+        if (!url){
+          const ok = await new Promise(res => { nameWait[id] = res; try { NAT.makeName(id, p.bt); } catch(e){ res(false); } setTimeout(() => { if (nameWait[id]){ delete nameWait[id]; res(false); } }, 9000); });
+          if (ok) try { url = NAT.clipUrl(id); } catch(e){}
+        }
+        if (url) await play(url + "?" + Date.now()); else if (p.fb) await sayOne(p.fb, "en");
+        await new Promise(r => setTimeout(r, 150)); continue;
+      }
       if (p.audio){ await play(p.audio); }
       else {
         let text = p.t != null ? p.t : p.text, lang = p.l || baseLang;
@@ -713,7 +851,7 @@ function eventFor(g, day, test){
     time: fmtTime(g[0].t), count: T(`${n} medicine${n > 1 ? "s" : ""} now`, `এখন ${num(n)}টি ওষুধ`),
     first: first ? (S.lang === "bn" ? first.bn : first.en) : "",
     items: g.map(x => ({name: x.med.name, line: [amtText(x.amt, x.med), siteName(x.med), foodText(x.med)].filter(Boolean).join(" · "), sub: durationText(x.med), note: x.med.note || ""})),
-    parts: alarmParts(g, first).map(pt => pt.audio ? {a: pt.mid} : pt.c ? {c: pt.c} : {t: pt.t != null ? pt.t : pt.text, l: pt.l || "", fb: pt.fb || "", alt: pt.alt || ""}),
+    parts: alarmParts(g, first).map(pt => pt.audio ? {a: pt.mid} : pt.c ? {c: pt.c} : pt.nm ? {nm: pt.nm, bt: pt.bt, fb: pt.fb || ""} : {t: pt.t != null ? pt.t : pt.text, l: pt.l || "", fb: pt.fb || "", alt: pt.alt || ""}),
     lang: S.lang === "bn" ? "bn" : "en", rate: S.voice.rate,
     labels: {taken: n > 1 ? T("Took all ✓","সবগুলো নিয়েছি ✓") : T("Took it ✓","নিয়েছি ✓"), again: T("Say it again","আবার শুনুন"), snooze: T("In 10 min","১০ মিনিট পরে"), skip: T("Skip","বাদ দিন")}
   };
@@ -766,6 +904,7 @@ function voiceCheck(){
 }
 window.onNativeResume = () => {
   if (!NAT) return;
+  S.meds.forEach(m => ensureNameVoice(m, false));
   try { JSON.parse(NAT.takeLogs() || "[]").forEach(l => { if (l.key && !S.log[l.key]) markDose(l.key, l.s); }); } catch(e){}
   pushSchedule(); render();
 };
@@ -931,7 +1070,7 @@ function vWiz(){
     <div class="photo-drop">${w.photo || P[m.id] ? `<img src="${w.photo || P[m.id]}" alt="">` : formIcon(m.form)}
       <div class="col grow" style="gap:6px"><div class="small muted">${T("A photo of the strip or box helps recognise it at alarm time.","ওষুধের পাতা বা বাক্সের ছবি দিলে অ্যালার্মের সময় চিনতে সুবিধা হয়।")}</div>
       <button class="btn ghost" data-act="photo">${ICON.cam}${w.photo || P[m.id] ? T("Change photo","ছবি বদলান") : T("Take photo (optional)","ছবি তুলুন (ঐচ্ছিক)")}</button></div></div>
-    <label class="f">${T("How should the app say the name? (optional)","অ্যাপ নামটা কীভাবে বলবে? (ঐচ্ছিক)")}<div class="row" style="flex-wrap:nowrap"><input class="inp" id="w-namebn" value="${esc(m.name_bn)}" placeholder="${T("e.g. নাপা","বাংলায় লিখুন, যেমন: নাপা")}"><button class="iconbtn" data-act="say-name" aria-label="${T("Listen","শুনুন")}">${ICON.speaker}</button></div></label>`;
+    <label class="f">${T("How should the app say the name? (optional)","অ্যাপ নামটা কীভাবে বলবে? (ঐচ্ছিক)")}<div class="row" style="flex-wrap:nowrap"><input class="inp" id="w-namebn" value="${esc(m.name_bn)}" placeholder="${esc(m.name ? (libClip(m) ? T("Recorded name ✓","নামটি রেকর্ড করা আছে ✓") : translitName(m.name)) : T("e.g. নাপা","বাংলায় লিখুন, যেমন: নাপা"))}"><button class="iconbtn" data-act="say-name" aria-label="${T("Listen","শুনুন")}">${ICON.speaker}</button></div></label>`;
   if (w.step === 2){
     const f = FORMS[m.form];
     return `${head(2, T("What kind of medicine?","কী ধরনের ওষুধ?"))}
@@ -1291,6 +1430,7 @@ function saveWiz(){
   }
   const i = S.meds.findIndex(x => x.id === m.id);
   if (i >= 0) S.meds[i] = m; else { m.createdAt = Date.now(); S.meds.push(m); }
+  ensureNameVoice(m, true);
   if (w.photo) putBlob("photos", m.id, w.photo);
   if (w.audio){ putBlob("audio", m.id, w.audio); try { NAT && NAT.saveClip(m.id, w.audio); } catch(e){} } else if (w.audioRemoved){ dropBlob("audio", m.id); try { NAT && NAT.deleteClip(m.id); } catch(e){} }
   S.setupDone = true; save();
@@ -1348,7 +1488,7 @@ document.addEventListener("click", async e => {
     case "w-days": wiz.days = b.dataset.n; render(); break;
     case "w-freq": m.freq = b.dataset.k; if (m.freq === "week" && !(m.weekdays || []).length) m.weekdays = [new Date().getDay()]; render(); break;
     case "w-wd": { const i = +b.dataset.i; m.weekdays = (m.weekdays || []).includes(i) ? m.weekdays.filter(x => x !== i) : [...(m.weekdays || []), i]; render(); break; }
-    case "say-name": unlockAudio(); speakParts(S.lang === "bn" ? nameParts(m) : [{text: sayName(m) || m.name}]); break;
+    case "say-name": unlockAudio(); if (NAT && !libClip(m)) { try { NAT.makeName(m.id + "_nm", banglaName(m) + "।"); } catch(e){} } speakParts(S.lang === "bn" ? nameParts(m) : [{text: sayName(m) || m.name}]); break;
     case "w-listen": { unlockAudio(); const u = wiz.audio || (!wiz.audioRemoved && A[m.id]); const tmp = {...m, end: wiz.days ? dkey(new Date(new Date(m.start + "T00:00").getTime() + (+wiz.days - 1) * 864e5)) : ""}; const dd = {med:tmp, amt:(m.times[0] || {}).amt || 1}; speakParts(u ? [{audio:u}] : S.lang === "bn" ? [...nameParts(tmp), ...doseClipParts(dd)] : doseLines(dd).map(text => ({text}))); break; }
     case "rec": document.getElementById("file-audio").click(); break;
     case "del-rec": wiz.audio = null; wiz.audioRemoved = true; render(); break;
@@ -1368,7 +1508,7 @@ document.addEventListener("click", async e => {
     case "rv-cancel": review = null; view = "home"; render(); break;
     case "rv-save": {
       const add = review.items.filter(x => x.on && x.med.name.trim());
-      add.forEach(x => { const mm = x.med; mm.createdAt = Date.now(); S.meds.push(mm); if (x.photo) putBlob("photos", mm.id, x.photo); if (x.audio) putBlob("audio", mm.id, x.audio); });
+      add.forEach(x => { const mm = x.med; mm.createdAt = Date.now(); S.meds.push(mm); ensureNameVoice(mm, true); if (x.photo) putBlob("photos", mm.id, x.photo); if (x.audio) putBlob("audio", mm.id, x.audio); });
       S.setupDone = true; save(); review = null; view = "home"; render(); window.scrollTo(0, 0);
       toast(T(`${add.length} medicines saved. Alarms set.`, `${num(add.length)}টি ওষুধ সেভ হয়েছে। অ্যালার্ম সেট হয়েছে।`)); break;
     }

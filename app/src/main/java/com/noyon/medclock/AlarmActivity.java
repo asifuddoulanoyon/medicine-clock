@@ -271,6 +271,21 @@ public class AlarmActivity extends Activity {
             if (!playAsset("voice/" + phrase + ".mp3", quick)) quick.run();
             return;
         }
+        // Medicine name in the offline Bangla voice (made when the medicine was saved; made now if missing)
+        String nm = p.optString("nm", "");
+        if (!nm.isEmpty()) {
+            final String id = nm + "_nm", bt = p.optString("bt", ""), fbName = p.optString("fb", "");
+            Runnable sayFallback = () -> { if (fbName.isEmpty()) next.run(); else tts.speak(fbName, "en", rate, () -> h.post(next)); };
+            if (BnTts.exists(this, id)) { if (!playFile(BnTts.INSTANCE.clipFile(this, id), next)) sayFallback.run(); return; }
+            new Thread(() -> {
+                boolean ok = BnTts.toFile(AlarmActivity.this, id, bt);
+                h.post(() -> {
+                    if (closed || gen != speakGen) return;
+                    if (!ok || !playFile(BnTts.INSTANCE.clipFile(AlarmActivity.this, id), next)) sayFallback.run();
+                });
+            }).start();
+            return;
+        }
         // The family's own recording for this medicine
         String clipId = p.optString("a", "");
         if (!clipId.isEmpty()) {
@@ -308,6 +323,22 @@ public class AlarmActivity extends Activity {
     private AudioAttributes alarmAttrs() {
         return new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
+    }
+
+    private boolean playFile(File f, Runnable done) {
+        try {
+            clip = new MediaPlayer();
+            clip.setAudioAttributes(alarmAttrs());
+            clip.setDataSource(f.getAbsolutePath());
+            clip.setOnCompletionListener(mp -> { mp.release(); if (clip == mp) clip = null; done.run(); });
+            clip.setOnErrorListener((mp, what, extra) -> { mp.release(); if (clip == mp) clip = null; done.run(); return true; });
+            clip.prepare();
+            clip.start();
+            return true;
+        } catch (Exception e) {
+            if (clip != null) { try { clip.release(); } catch (Exception ignored) { } clip = null; }
+            return false;
+        }
     }
 
     /** Plays a recorded phrase packed in the app. Returns false if it could not start. */

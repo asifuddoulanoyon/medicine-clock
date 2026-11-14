@@ -172,6 +172,27 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String takeLogs() { return Scheduler.takeLogs(MainActivity.this); }
 
+        /** Make (or remake) the Bangla sound of a medicine name in the background; tells the page when done. */
+        @JavascriptInterface
+        public void makeName(String id, String text) {
+            new Thread(() -> {
+                boolean ok = BnTts.toFile(MainActivity.this, id, text);
+                runOnUiThread(() -> web.evaluateJavascript("window.__nameReady && window.__nameReady(" + JSONObject.quote(id) + "," + ok + ")", null));
+            }).start();
+        }
+
+        /** Same, but only if that name has no sound yet. */
+        @JavascriptInterface
+        public void ensureName(String id, String text) {
+            if (BnTts.exists(MainActivity.this, id)) return;
+            new Thread(() -> BnTts.toFile(MainActivity.this, id, text)).start();
+        }
+
+        @JavascriptInterface
+        public String clipUrl(String id) {
+            return BnTts.exists(MainActivity.this, id) ? "file://" + BnTts.INSTANCE.clipFile(MainActivity.this, id).getAbsolutePath() : "";
+        }
+
         @JavascriptInterface
         public void saveClip(String id, String dataUrl) {
             try {
