@@ -21,8 +21,8 @@ public class AlarmReceiver extends BroadcastReceiver {
     static void ensureChannel(Context c) {
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null || nm.getNotificationChannel(CHANNEL) != null) return;
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "ওষুধের অ্যালার্ম", NotificationManager.IMPORTANCE_HIGH);
-        ch.setDescription("ওষুধ খাওয়ার সময় হলে অ্যালার্ম");
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "ঔষধের অ্যালার্ম", NotificationManager.IMPORTANCE_HIGH);
+        ch.setDescription("ঔষধ খাওয়ার সময় হলে অ্যালার্ম");
         Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
         if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
         ch.setSound(sound, new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
@@ -36,7 +36,7 @@ public class AlarmReceiver extends BroadcastReceiver {
 
     static void showAlarm(Context c, String eventJson) {
         ensureChannel(c);
-        String title = "ওষুধের সময়!", text = "";
+        String title = "ঔষধের সময়!", text = "";
         try {
             JSONObject e = new JSONObject(eventJson);
             title = e.optString("title", title);

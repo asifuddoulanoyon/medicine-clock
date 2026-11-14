@@ -68,7 +68,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: ওষুধের ঘড়ি v1.0.${{ github.run_number }}
+          name: ঔষধের ঘড়ি v1.0.${{ github.run_number }}
           body: |
             ফোনে **MedicineClock.apk** ডাউনলোড করে ইনস্টল করুন।
             Download **MedicineClock.apk** on your Android phone and install it.
