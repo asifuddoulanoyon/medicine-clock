@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 5);
         }
-        tts = new TtsHelper(this);
+        tts = new TtsHelper(this, false);
 
         web = new WebView(this);
         WebSettings s = web.getSettings();
@@ -144,6 +144,27 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void openTtsSettings() { open(new Intent("com.android.settings.TTS_SETTINGS")); }
+
+        /** Play Store page of Google's speech engine (it has the Bangla voice). */
+        @JavascriptInterface
+        public void openTtsInstall() {
+            try {
+                Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + TtsHelper.GOOGLE));
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+            } catch (Exception e) {
+                open(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + TtsHelper.GOOGLE)));
+            }
+        }
+
+        /** Opens the engine's "download voice data" screen. */
+        @JavascriptInterface
+        public void installTtsData() {
+            Intent i = new Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA);
+            String eng = tts.engine();
+            if (eng != null && !eng.isEmpty()) i.setPackage(eng);
+            open(i);
+        }
 
         @JavascriptInterface
         public void setSchedule(String json) { Scheduler.setSchedule(MainActivity.this, json); }

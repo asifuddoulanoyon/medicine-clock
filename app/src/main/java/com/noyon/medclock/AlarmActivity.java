@@ -61,7 +61,7 @@ public class AlarmActivity extends Activity {
         catch (Exception e) { finish(); return; }
 
         buildUi();
-        tts = new TtsHelper(this);
+        tts = new TtsHelper(this, true);
         vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -252,8 +252,12 @@ public class AlarmActivity extends Activity {
 
     private void speakAll(Runnable after) {
         final int gen = ++speakGen;
-        final JSONArray parts = ev.optJSONArray("parts");
-        final String lang = ev.optString("lang", "bn");
+        JSONArray p = ev.optJSONArray("parts");
+        String lg = ev.optString("lang", "bn");
+        // No Bangla voice on this phone: say it in English rather than staying silent
+        if ("bn".equals(lg) && !tts.hasBangla() && ev.optJSONArray("partsEn") != null) { p = ev.optJSONArray("partsEn"); lg = "en"; }
+        final JSONArray parts = p;
+        final String lang = lg;
         final float rate = (float) ev.optDouble("rate", 0.85);
         speakPart(parts, 0, lang, rate, gen, after);
     }

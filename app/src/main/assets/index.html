@@ -552,7 +552,8 @@ function speakParts(parts){
 }
 function alarmParts(group, first){
   const bn = S.lang === "bn", p = prof(group[0].med.profile), n = group.length, parts = [];
-  const who = p && p.name ? p.name : "";
+  let who = p && p.name ? p.name : "";
+  if (!bn && /[\u0980-\u09FF]/.test(who)) who = p.rel === "me" ? "" : relName(p.rel).split(" / ")[0];
   parts.push({text: bn ? `${who ? who + ", " : ""}ওষুধের সময় হয়েছে।` : `${who ? who + ", " : ""}it is medicine time.`});
   if (n > 1) parts.push({text: bn ? `এখন মোট ${BN_WORDS[n] || n}টি ওষুধ।` : `${n} medicines now.`});
   if (first) parts.push({text: bn ? first.bn : first.en});
@@ -641,6 +642,7 @@ function eventFor(g, day, test){
     first: first ? (S.lang === "bn" ? first.bn : first.en) : "",
     items: g.map(x => ({name: x.med.name, line: [amtText(x.amt, x.med), siteName(x.med), foodText(x.med)].filter(Boolean).join(" · "), sub: durationText(x.med), note: x.med.note || ""})),
     parts: alarmParts(g, first).map(pt => pt.audio ? {a: pt.mid} : {t: pt.text}),
+    partsEn: withLang("en", () => alarmParts(g, first).map(pt => pt.audio ? {a: pt.mid} : {t: pt.text})),
     lang: S.lang === "bn" ? "bn" : "en", rate: S.voice.rate,
     labels: {taken: n > 1 ? T("Took all ✓","সবগুলো নিয়েছি ✓") : T("Took it ✓","নিয়েছি ✓"), again: T("Say it again","আবার শুনুন"), snooze: T("In 10 min","১০ মিনিট পরে"), skip: T("Skip","বাদ দিন")}
   };
@@ -658,6 +660,7 @@ function buildEvents(){
   }
   return out.sort((a, b) => a.at - b.at);
 }
+function withLang(l, fn){ const old = S.lang; S.lang = l; try { return fn(); } finally { S.lang = old; } }
 function pushSchedule(){ if (!NAT) return; try { NAT.setSchedule(JSON.stringify(buildEvents())); } catch(e){} }
 function nativeStatus(){ if (!NAT) return null; try { return JSON.parse(NAT.status()); } catch(e){ return null; } }
 function nativeTts(){ if (!NAT) return null; try { return JSON.parse(NAT.ttsInfo()); } catch(e){ return null; } }
@@ -669,11 +672,39 @@ function permBanner(full){
     ["fullscreen", st.fullscreen, T("Allow full-screen alarm","ফুল-স্ক্রিন অ্যালার্মের অনুমতি দিন")],
     ["battery", st.battery, T("Don't restrict battery","ব্যাটারি সীমাবদ্ধতা বন্ধ করুন")]
   ].filter(x => full || !x[1]);
-  const tts = nativeTts(), bnOk = !tts || tts.bn >= 0;
+  const tts = nativeTts(), bnOk = !tts || tts.bn === 1 || tts.bn === -2 || S.lang !== "bn";
   if (!items.length && bnOk) return "";
   return `<div class="card col" style="border-color:var(--pill)"><b>${T("So the alarm always rings and speaks:","অ্যালার্ম যেন সবসময় বাজে ও কথা বলে:")}</b>
     ${items.map(([k, ok, l]) => `<div class="row" style="flex-wrap:nowrap"><span class="grow">${ok ? "✓ " : ""}${l}</span>${ok ? "" : `<button class="iconbtn" data-act="nat-fix" data-k="${k}">${T("Allow","চালু করুন")}</button>`}</div>`).join("")}
-    ${S.lang === "bn" && !bnOk ? `<div class="row" style="flex-wrap:nowrap"><span class="grow">${T("Bangla voice is not installed. Open voice settings, choose Google, and download Bangla (Bangladesh).","বাংলা ভয়েস ইনস্টল নেই। ভয়েস সেটিংস খুলে Google বাছাই করুন, তারপর বাংলা (বাংলাদেশ) ডাউনলোড করুন।")}</span><button class="iconbtn" data-act="nat-tts">${T("Open","খুলুন")}</button></div>` : ""}
+    ${!bnOk ? `<div class="row" style="flex-wrap:nowrap"><span class="grow" style="color:var(--alert);font-weight:700">${T("No Bangla voice on this phone, so the app can't speak Bangla yet.","এই ফোনে বাংলা ভয়েস নেই, তাই অ্যাপ এখনো বাংলায় কথা বলতে পারছে না।")}</span><button class="iconbtn" data-act="go" data-v="settings">${T("Fix","ঠিক করুন")}</button></div>` : ""}
+  </div>`;
+}
+
+function voiceCheck(){
+  const v = nativeTts(); if (!v) return "";
+  const ok = (good, text) => `<div class="row" style="flex-wrap:nowrap;gap:8px"><b style="color:${good ? "var(--ok)" : "var(--alert)"};width:22px">${good ? "✓" : "✕"}</b><span class="grow">${text}</span></div>`;
+  const isGoogle = /google/i.test(v.engine || "");
+  const bnTxt = v.bn === 1 ? T("Bangla voice is ready","বাংলা ভয়েস আছে") : v.bn === 0 ? T("Bangla voice is not downloaded yet","বাংলা ভয়েস এখনো ডাউনলোড হয়নি") : v.bn === -2 ? T("Voice engine is starting…","ভয়েস চালু হচ্ছে…") : T("This voice engine has no Bangla","এই ভয়েস ইঞ্জিনে বাংলা নেই");
+  const vol = (a, b) => b ? Math.round(a / b * 100) : 0;
+  return `<div class="card col" id="voicecheck" style="border:2px solid ${v.bn === 1 ? "var(--line)" : "var(--alert)"}">
+    <h3>${T("Voice check","ভয়েস পরীক্ষা")}</h3>
+    ${ok(v.ready, v.ready ? T("Phone voice engine is working","ফোনের ভয়েস ইঞ্জিন চালু আছে") : T("Phone voice engine is not working","ফোনের ভয়েস ইঞ্জিন চালু হয়নি"))}
+    ${ok(isGoogle, isGoogle ? T("Using Google voice","Google ভয়েস ব্যবহার হচ্ছে") : T(`Using "${esc(v.engine || "none")}". Google's voice is needed for Bangla.`, `"${esc(v.engine || "কিছু না")}" ব্যবহার হচ্ছে। বাংলার জন্য Google-এর ভয়েস লাগবে।`))}
+    ${ok(v.bn === 1, bnTxt)}
+    ${ok(v.media > 0, T(`Media volume ${vol(v.media, v.mediaMax)}%`, `মিডিয়া ভলিউম ${num(vol(v.media, v.mediaMax))}%`))}
+    ${ok(v.alarm > 0, T(`Alarm volume ${vol(v.alarm, v.alarmMax)}%`, `অ্যালার্ম ভলিউম ${num(vol(v.alarm, v.alarmMax))}%`))}
+    ${v.bn !== 1 ? `<div class="banner warn" style="display:block">
+      <b>${T("Do these steps once:","একবার এই ধাপগুলো করুন:")}</b>
+      <ol style="margin:6px 0 0;padding-left:22px">
+        ${!v.google ? `<li>${T("Install “Speech Recognition & Synthesis” (Google) from the Play Store.","Play Store থেকে “Speech Recognition & Synthesis” (Google) ইনস্টল বা আপডেট করুন।")}</li>` : ""}
+        <li>${T("Tap ‘Download Bangla voice’, find বাংলা (বাংলাদেশ) and download it (internet needed, about 10–30 MB).","‘বাংলা ভয়েস ডাউনলোড’ চাপুন, বাংলা (বাংলাদেশ) খুঁজে ডাউনলোড করুন (ইন্টারনেট লাগবে, প্রায় ১০–৩০ MB)।")}</li>
+        <li>${T("In phone voice settings, set ‘Preferred engine’ to Google.","ফোনের ভয়েস সেটিংসে ‘Preferred engine’ হিসেবে Google বাছাই করুন।")}</li>
+        <li>${T("Close this app fully and open it again, then tap ‘Test in Bangla’.","অ্যাপটি পুরো বন্ধ করে আবার খুলুন, তারপর ‘বাংলায় শুনুন’ চাপুন।")}</li>
+      </ol></div>` : ""}
+    <div class="row"><button class="btn" data-act="vc-test" data-l="bn">${ICON.speaker}${T("Test in Bangla","বাংলায় শুনুন")}</button><button class="btn ghost" data-act="vc-test" data-l="en">${T("Test in English","ইংরেজিতে শুনুন")}</button></div>
+    <div class="row">${!v.google || !isGoogle ? `<button class="btn ghost" data-act="vc-install">${T("Get Google voice","Google ভয়েস ইনস্টল")}</button>` : ""}<button class="btn ghost" data-act="vc-data">${T("Download Bangla voice","বাংলা ভয়েস ডাউনলোড")}</button><button class="btn ghost" data-act="nat-tts">${T("Phone voice settings","ফোনের ভয়েস সেটিংস")}</button></div>
+    <div class="small muted" id="vc-result"></div>
+    ${v.bn !== 1 ? `<div class="small muted">${T("Until then, alarms speak in English so they are never silent.","ততক্ষণ পর্যন্ত অ্যালার্ম ইংরেজিতে কথা বলবে, যাতে চুপ না থাকে।")}</div>` : ""}
   </div>`;
 }
 window.onNativeResume = () => {
@@ -1148,6 +1179,7 @@ function vSettings(){
   const vs = voices().filter(v => /^(bn|en)/i.test(v.lang || ""));
   return `
   <div class="card col"><h3>${T("Language","ভাষা")}</h3><div class="seg"><button data-act="setlang" data-l="bn" aria-pressed="${S.lang === "bn"}">বাংলা</button><button data-act="setlang" data-l="en" aria-pressed="${S.lang === "en"}">English</button></div></div>
+  ${voiceCheck()}
   ${NAT ? permBanner(true) : ""}
   <div class="card col"><h3>${T("Voice","কণ্ঠ")}</h3>
     <label class="f">${T("Speaking speed (slower is clearer)","কথা বলার গতি (ধীরে হলে বেশি পরিষ্কার)")}<input type="range" id="s-rate" min="0.6" max="1.1" step="0.05" value="${S.voice.rate}"></label>
@@ -1290,6 +1322,22 @@ document.addEventListener("click", async e => {
     case "test": { unlockAudio(); const list = S.meds.filter(x => x.mode !== "sos").slice(0, 3); const t = fromMin(nowMin()); const g = list.length ? list.map(x => ({id:"test|" + x.id, t, amt:(x.times[0] || {}).amt || 1, med:x, test:true})) : [{id:"test|x", t, amt:1, test:true, med:Object.assign(newMed((S.profiles[0] || {}).id), {name:T("Test medicine","পরীক্ষার ওষুধ")})}]; const gg = g.filter(d => d.med.profile === g[0].med.profile); if (NAT){ try { NAT.testAlarm(JSON.stringify(eventFor(gg, new Date(), true))); } catch(err){ openAlarm(gg); } } else openAlarm(gg); break; }
     case "nat-fix": try { NAT.fixSetting(b.dataset.k); } catch(err){} break;
     case "nat-tts": try { NAT.openTtsSettings(); } catch(err){} break;
+    case "vc-install": try { NAT.openTtsInstall(); } catch(err){} break;
+    case "vc-data": try { NAT.installTtsData(); } catch(err){} break;
+    case "vc-test": {
+      const l = b.dataset.l, before = (nativeTts() || {}).spoken || 0, out = document.getElementById("vc-result");
+      if (out) out.textContent = T("Speaking…","বলছে…");
+      withLang(l, () => speakParts(l === "bn" ? [{text:"আসসালামু আলাইকুম। ওষুধের সময় হয়েছে। সেকলো, একটি ক্যাপসুল, খাওয়ার আগে।"}] : [{text:"Hello. It is medicine time. Seclo, one capsule, before food."}]));
+      setTimeout(() => {
+        if (view !== "settings") return;
+        render();
+        const v = nativeTts() || {}, el = document.getElementById("vc-result"); if (!el) return;
+        el.style.cssText = "font-weight:700;color:var(--ink)";
+        el.textContent = (v.spoken || 0) > before ? T("The phone spoke. If you heard nothing, turn the media volume up.","ফোন কথা বলেছে। কিছু না শুনে থাকলে মিডিয়া ভলিউম বাড়ান।")
+          : T(`The phone could not speak (${v.lastErrorWhere || "no voice"} ${v.lastError || ""}). Follow the steps above.`, `ফোন কথা বলতে পারেনি (${v.lastErrorWhere || "ভয়েস নেই"} ${v.lastError || ""})। উপরের ধাপগুলো করুন।`);
+      }, 3500);
+      break;
+    }
     case "al-taken": alarmGroup.forEach(d => { if (!d.test) markDose(d.id, "taken"); }); closeAlarm(); toast(T("Well done!","খুব ভালো!")); break;
     case "al-skip": alarmGroup.forEach(d => { if (!d.test) markDose(d.id, "skipped"); }); closeAlarm(); break;
     case "al-snooze": alarmGroup.forEach(d => { snooze[d.id] = Date.now() + 10*60000; }); closeAlarm(); toast(T("I'll remind you in 10 minutes","১০ মিনিট পরে আবার মনে করিয়ে দেব")); break;
