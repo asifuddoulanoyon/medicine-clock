@@ -524,33 +524,105 @@ function doseLines(d){
   if (m.note) out.push(m.note);
   return out;
 }
+
+/* Built-in Bangla voice: recorded phrases shipped with the app (voice/*.mp3), so no download is needed.
+   Medicine names are read by the phone's voice (English brand names) or a recording made by the user. */
+const VOICE_DIR = "voice/";
+const SAMPLE_BN = [{c:"who_abba"},{c:"greet"},{c:"total_2"},{c:"ord_1"},{t:"Seclo", l:"en"},{c:"cnt_1"},{c:"u_capsule"},{c:"f_b30"},{c:"ord_2"},{t:"Moxiflox", l:"en"},{c:"s_both_eyes"},{c:"num_2"},{c:"u_drop"},{c:"left_5"}];
+const VK = new Set(["who_abba", "who_amma", "who_dada", "who_dadi", "who_nana", "who_nani", "greet", "total_2", "total_3", "total_4", "total_5", "total_6", "total_7", "total_8", "total_9", "total_10", "ord_1", "ord_2", "ord_3", "ord_4", "ord_5", "ord_6", "ord_7", "ord_8", "ord_9", "ord_10", "cnt_half", "cnt_1h", "cnt_2h", "cnt_1", "cnt_2", "cnt_3", "cnt_4", "cnt_5", "cnt_6", "cnt_7", "cnt_8", "cnt_9", "cnt_10", "num_half", "num_1h", "num_2h", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_8", "num_9", "num_10", "num_11", "num_12", "num_13", "num_14", "num_15", "num_16", "num_17", "num_18", "num_19", "num_20", "num_21", "num_22", "num_23", "num_24", "num_25", "num_26", "num_27", "num_28", "num_29", "num_30", "num_31", "num_32", "num_33", "num_34", "num_35", "num_36", "num_37", "num_38", "num_39", "num_40", "u_tablet", "u_capsule", "u_inj", "u_supp", "u_powder", "u_spoon", "u_drop", "u_puff", "u_spray", "u_unit", "apply", "s_both_eyes", "s_right_eye", "s_left_eye", "s_both_ears", "s_right_ear", "s_left_ear", "s_nose", "s_mouth", "s_skin", "s_wound", "s_gums", "f_before", "f_b15", "f_b30", "f_b45", "f_b60", "f_after", "f_a0", "f_a15", "f_a30", "f_a60", "f_a120", "f_with", "f_empty", "shake", "lastday", "left_2", "left_3", "left_4", "left_5", "left_6", "left_7", "left_8", "left_9", "left_10", "gastric_first", "gastric_ask", "eyewait", "test", "this_med"]);
+const WHO_CLIP = {"আব্বা":"who_abba","আম্মা":"who_amma","দাদা":"who_dada","দাদি":"who_dadi","নানা":"who_nana","নানি":"who_nani"};
+const UNIT_CLIP = {tablet:"u_tablet", capsule:"u_capsule", inj:"u_inj", supp:"u_supp", powder:"u_powder", syrup:"u_spoon", drop:"u_drop", inhaler:"u_puff", spray:"u_spray", insulin:"u_unit"};
+function cntClip(a){ a = +a; if (a === 0.5) return "cnt_half"; if (a === 1.5) return "cnt_1h"; if (a === 2.5) return "cnt_2h"; return Number.isInteger(a) && a >= 1 && a <= 10 ? "cnt_" + a : null; }
+function numClip(a){ a = +a; if (a === 0.5) return "num_half"; if (a === 1.5) return "num_1h"; if (a === 2.5) return "num_2h"; return Number.isInteger(a) && a >= 1 && a <= 40 ? "num_" + a : null; }
+function foodClip(m){
+  const o = +m.offset || 0;
+  if (m.food === "before"){ const off = o || 30; return [15,30,45,60].includes(off) ? "f_b" + off : "f_before"; }
+  if (m.food === "after") return o === 0 ? "f_a0" : [15,30,60,120].includes(o) ? "f_a" + o : "f_after";
+  if (m.food === "with") return "f_with";
+  if (m.food === "empty") return "f_empty";
+  return null;
+}
+function englishName(m){ const s = String(m.name || "").replace(/\(.*?\)/g, "").replace(/(\d+(\.\d+)?)\s*(mg|mcg|ml|gm|g|%|iu)\b/gi, "").replace(/\s+/g, " ").trim(); return /[a-z]/i.test(s) ? s : ""; }
+function nameParts(m){
+  const en = englishName(m);
+  if (m.name_bn) return [{t:m.name_bn, l:"bn", fb:en, alt: en ? "" : "this_med"}];
+  if (en) return [{t:en, l:"en"}];
+  return [{t:m.name, l:"bn", fb:"", alt:"this_med"}];
+}
+function doseClipParts(d){
+  const m = d.med, out = [], site = m.site && m.site !== "other" && !m.siteText && SITES[m.site] ? "s_" + m.site : null;
+  if (m.form === "cream"){ if (site) out.push({c:site}); else if (m.siteText) out.push({t:m.siteText, l:"bn", fb:""}); out.push({c:"apply"}); }
+  else {
+    if (site) out.push({c:site});
+    const k = ["tablet","capsule","inj","supp","powder"].includes(m.form) ? cntClip(d.amt) : numClip(d.amt);
+    out.push(k ? {c:k} : {t:String(d.amt), l:"en"});
+    out.push({c: UNIT_CLIP[m.form] || "u_tablet"});
+  }
+  const fc = foodClip(m); if (fc) out.push({c:fc});
+  if (m.form === "syrup") out.push({c:"shake"});
+  const left = daysLeft(m); if (left === 1) out.push({c:"lastday"}); else if (left > 1 && left <= 10) out.push({c:"left_" + left});
+  if (m.note) out.push({t:m.note, l:"bn", fb:""});
+  return out;
+}
+function bnTtsAvailable(){
+  if (NAT){ const v = nativeTts(); return !!(v && v.bn === 1); }
+  return !!TTS || !!pickVoice("bn");
+}
+
 function speakParts(parts){
-  const my = ++speakToken, resume = !!beepTimer, lang = S.lang === "bn" ? "bn" : "en", v = pickVoice(lang);
+  const my = ++speakToken, resume = !!beepTimer, baseLang = S.lang === "bn" ? "bn" : "en";
   clearInterval(beepTimer); beepTimer = null;
-  const synth = text => new Promise(res => {
+  const synth = (text, lang) => new Promise(res => {
     try {
-      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice(lang), u = new SpeechSynthesisUtterance(text);
       if (v){ u.voice = v; u.lang = v.lang; } else u.lang = lang === "bn" ? "bn-BD" : "en-US";
       u.rate = S.voice.rate; u.volume = 1;
       const t = setTimeout(res, 12000); u.onend = u.onerror = () => { clearTimeout(t); res(); };
       speechSynthesis.speak(u);
     } catch(e){ res(); }
   });
-  const native = text => new Promise(res => { const id = "s" + (++ttsSeq); ttsWait[id] = res; try { NAT.speak(id, text, lang, S.voice.rate); } catch(e){ delete ttsWait[id]; res(); } setTimeout(() => { if (ttsWait[id]){ delete ttsWait[id]; res(); } }, 15000); });
-  const sayOne = text => NAT ? native(text) : TTS ? TTS.speak(text, {language: lang, rate: S.voice.rate}).catch(() => synth(text)) : synth(text);
-  if (!NAT && !TTS && !warnedSilent && (!("speechSynthesis" in window) || !voices().length)){ warnedSilent = true; toast(T("This page can't speak here. Install the Android app (APK) for the spoken alarm.","এখানে পেজটি কথা বলতে পারে না। কথা বলা অ্যালার্মের জন্য Android অ্যাপ (APK) ইনস্টল করুন।")); }
+  const native = (text, lang) => new Promise(res => { const id = "s" + (++ttsSeq); ttsWait[id] = res; try { NAT.speak(id, text, lang, S.voice.rate); } catch(e){ delete ttsWait[id]; res(); } setTimeout(() => { if (ttsWait[id]){ delete ttsWait[id]; res(); } }, 15000); });
+  const sayOne = (text, lang) => NAT ? native(text, lang) : TTS ? TTS.speak(text, {language: lang, rate: S.voice.rate}).catch(() => synth(text, lang)) : synth(text, lang);
   const play = url => new Promise(res => { try { const a = new Audio(url); a.onended = a.onerror = res; a.play().catch(res); setTimeout(res, 30000); } catch(e){ res(); } });
+  const bnOk = bnTtsAvailable();
   (async () => {
     try { speechSynthesis.cancel(); } catch(e){}
     for (const p of parts){
       if (my !== speakToken) return;
-      if (p.audio) await play(p.audio); else if (p.text) await sayOne(p.text);
-      await new Promise(r => setTimeout(r, 380));
+      if (p.c){ await play(VOICE_DIR + p.c + ".mp3"); await new Promise(r => setTimeout(r, 110)); continue; }
+      if (p.audio){ await play(p.audio); }
+      else {
+        let text = p.t != null ? p.t : p.text, lang = p.l || baseLang;
+        if (!text) continue;
+        if (lang === "bn" && !bnOk){
+          if (p.fb){ text = p.fb; lang = "en"; }
+          else { if (p.alt) await play(VOICE_DIR + p.alt + ".mp3"); continue; }
+        }
+        await sayOne(text, lang);
+      }
+      await new Promise(r => setTimeout(r, 300));
     }
     if (my === speakToken && resume && !document.getElementById("alarm").classList.contains("hidden")) beepTimer = setInterval(beepOnce, 1300);
   })();
 }
 function alarmParts(group, first){
+  if (S.lang !== "bn") return alarmPartsTTS(group, first);
+  const p = prof(group[0].med.profile), n = group.length, parts = [];
+  const wk = p && WHO_CLIP[(p.name || "").trim()];
+  if (wk) parts.push({c:wk}); else if (p && p.name && p.rel !== "me") parts.push({t:p.name, l:"bn", fb:""});
+  parts.push({c:"greet"});
+  if (n > 1) parts.push({c:"total_" + Math.min(n, 10)});
+  if (first) parts.push({c: first.id ? "gastric_ask" : "gastric_first"});
+  group.forEach((d, i) => {
+    if (n > 1) parts.push({c:"ord_" + Math.min(i + 1, 10)});
+    if (A[d.med.id]){ parts.push({audio:A[d.med.id], mid:d.med.id}); return; }
+    nameParts(d.med).forEach(x => parts.push(x));
+    doseClipParts(d).forEach(x => parts.push(x));
+  });
+  if (group.filter(d => d.med.form === "drop" && /eye/.test(d.med.site || "")).length > 1) parts.push({c:"eyewait"});
+  return parts;
+}
+function alarmPartsTTS(group, first){
   const bn = S.lang === "bn", p = prof(group[0].med.profile), n = group.length, parts = [];
   let who = p && p.name ? p.name : "";
   if (!bn && /[\u0980-\u09FF]/.test(who)) who = p.rel === "me" ? "" : relName(p.rel).split(" / ")[0];
@@ -641,8 +713,7 @@ function eventFor(g, day, test){
     time: fmtTime(g[0].t), count: T(`${n} medicine${n > 1 ? "s" : ""} now`, `এখন ${num(n)}টি ওষুধ`),
     first: first ? (S.lang === "bn" ? first.bn : first.en) : "",
     items: g.map(x => ({name: x.med.name, line: [amtText(x.amt, x.med), siteName(x.med), foodText(x.med)].filter(Boolean).join(" · "), sub: durationText(x.med), note: x.med.note || ""})),
-    parts: alarmParts(g, first).map(pt => pt.audio ? {a: pt.mid} : {t: pt.text}),
-    partsEn: withLang("en", () => alarmParts(g, first).map(pt => pt.audio ? {a: pt.mid} : {t: pt.text})),
+    parts: alarmParts(g, first).map(pt => pt.audio ? {a: pt.mid} : pt.c ? {c: pt.c} : {t: pt.t != null ? pt.t : pt.text, l: pt.l || "", fb: pt.fb || "", alt: pt.alt || ""}),
     lang: S.lang === "bn" ? "bn" : "en", rate: S.voice.rate,
     labels: {taken: n > 1 ? T("Took all ✓","সবগুলো নিয়েছি ✓") : T("Took it ✓","নিয়েছি ✓"), again: T("Say it again","আবার শুনুন"), snooze: T("In 10 min","১০ মিনিট পরে"), skip: T("Skip","বাদ দিন")}
   };
@@ -672,7 +743,7 @@ function permBanner(full){
     ["fullscreen", st.fullscreen, T("Allow full-screen alarm","ফুল-স্ক্রিন অ্যালার্মের অনুমতি দিন")],
     ["battery", st.battery, T("Don't restrict battery","ব্যাটারি সীমাবদ্ধতা বন্ধ করুন")]
   ].filter(x => full || !x[1]);
-  const tts = nativeTts(), bnOk = !tts || tts.bn === 1 || tts.bn === -2 || S.lang !== "bn";
+  const bnOk = true;   // Bangla is built into the app now
   if (!items.length && bnOk) return "";
   return `<div class="card col" style="border-color:var(--pill)"><b>${T("So the alarm always rings and speaks:","অ্যালার্ম যেন সবসময় বাজে ও কথা বলে:")}</b>
     ${items.map(([k, ok, l]) => `<div class="row" style="flex-wrap:nowrap"><span class="grow">${ok ? "✓ " : ""}${l}</span>${ok ? "" : `<button class="iconbtn" data-act="nat-fix" data-k="${k}">${T("Allow","চালু করুন")}</button>`}</div>`).join("")}
@@ -683,28 +754,14 @@ function permBanner(full){
 function voiceCheck(){
   const v = nativeTts(); if (!v) return "";
   const ok = (good, text) => `<div class="row" style="flex-wrap:nowrap;gap:8px"><b style="color:${good ? "var(--ok)" : "var(--alert)"};width:22px">${good ? "✓" : "✕"}</b><span class="grow">${text}</span></div>`;
-  const isGoogle = /google/i.test(v.engine || "");
-  const bnTxt = v.bn === 1 ? T("Bangla voice is ready","বাংলা ভয়েস আছে") : v.bn === 0 ? T("Bangla voice is not downloaded yet","বাংলা ভয়েস এখনো ডাউনলোড হয়নি") : v.bn === -2 ? T("Voice engine is starting…","ভয়েস চালু হচ্ছে…") : T("This voice engine has no Bangla","এই ভয়েস ইঞ্জিনে বাংলা নেই");
   const vol = (a, b) => b ? Math.round(a / b * 100) : 0;
-  return `<div class="card col" id="voicecheck" style="border:2px solid ${v.bn === 1 ? "var(--line)" : "var(--alert)"}">
+  return `<div class="card col" id="voicecheck">
     <h3>${T("Voice check","ভয়েস পরীক্ষা")}</h3>
-    ${ok(v.ready, v.ready ? T("Phone voice engine is working","ফোনের ভয়েস ইঞ্জিন চালু আছে") : T("Phone voice engine is not working","ফোনের ভয়েস ইঞ্জিন চালু হয়নি"))}
-    ${ok(isGoogle, isGoogle ? T("Using Google voice","Google ভয়েস ব্যবহার হচ্ছে") : T(`Using "${esc(v.engine || "none")}". Google's voice is needed for Bangla.`, `"${esc(v.engine || "কিছু না")}" ব্যবহার হচ্ছে। বাংলার জন্য Google-এর ভয়েস লাগবে।`))}
-    ${ok(v.bn === 1, bnTxt)}
-    ${ok(v.media > 0, T(`Media volume ${vol(v.media, v.mediaMax)}%`, `মিডিয়া ভলিউম ${num(vol(v.media, v.mediaMax))}%`))}
-    ${ok(v.alarm > 0, T(`Alarm volume ${vol(v.alarm, v.alarmMax)}%`, `অ্যালার্ম ভলিউম ${num(vol(v.alarm, v.alarmMax))}%`))}
-    ${v.bn !== 1 ? `<div class="banner warn" style="display:block">
-      <b>${T("Do these steps once:","একবার এই ধাপগুলো করুন:")}</b>
-      <ol style="margin:6px 0 0;padding-left:22px">
-        ${!v.google ? `<li>${T("Install “Speech Recognition & Synthesis” (Google) from the Play Store.","Play Store থেকে “Speech Recognition & Synthesis” (Google) ইনস্টল বা আপডেট করুন।")}</li>` : ""}
-        <li>${T("Tap ‘Download Bangla voice’, find বাংলা (বাংলাদেশ) and download it (internet needed, about 10–30 MB).","‘বাংলা ভয়েস ডাউনলোড’ চাপুন, বাংলা (বাংলাদেশ) খুঁজে ডাউনলোড করুন (ইন্টারনেট লাগবে, প্রায় ১০–৩০ MB)।")}</li>
-        <li>${T("In phone voice settings, set ‘Preferred engine’ to Google.","ফোনের ভয়েস সেটিংসে ‘Preferred engine’ হিসেবে Google বাছাই করুন।")}</li>
-        <li>${T("Close this app fully and open it again, then tap ‘Test in Bangla’.","অ্যাপটি পুরো বন্ধ করে আবার খুলুন, তারপর ‘বাংলায় শুনুন’ চাপুন।")}</li>
-      </ol></div>` : ""}
-    <div class="row"><button class="btn" data-act="vc-test" data-l="bn">${ICON.speaker}${T("Test in Bangla","বাংলায় শুনুন")}</button><button class="btn ghost" data-act="vc-test" data-l="en">${T("Test in English","ইংরেজিতে শুনুন")}</button></div>
-    <div class="row">${!v.google || !isGoogle ? `<button class="btn ghost" data-act="vc-install">${T("Get Google voice","Google ভয়েস ইনস্টল")}</button>` : ""}<button class="btn ghost" data-act="vc-data">${T("Download Bangla voice","বাংলা ভয়েস ডাউনলোড")}</button><button class="btn ghost" data-act="nat-tts">${T("Phone voice settings","ফোনের ভয়েস সেটিংস")}</button></div>
-    <div class="small muted" id="vc-result"></div>
-    ${v.bn !== 1 ? `<div class="small muted">${T("Until then, alarms speak in English so they are never silent.","ততক্ষণ পর্যন্ত অ্যালার্ম ইংরেজিতে কথা বলবে, যাতে চুপ না থাকে।")}</div>` : ""}
+    ${ok(true, T("Bangla voice is built into the app. Nothing to download.","বাংলা কণ্ঠ অ্যাপের ভেতরেই আছে। কিছু ডাউনলোড করতে হবে না।"))}
+    ${ok(v.ready, v.ready ? T("Phone voice works (it reads medicine names)","ফোনের ভয়েস চালু আছে (ওষুধের নাম পড়ে)") : T("Phone voice is off, medicine names won't be read","ফোনের ভয়েস বন্ধ, ওষুধের নাম পড়া হবে না"))}
+    ${ok(v.media > 0, T(`Media volume ${vol(v.media, v.mediaMax)}%`, `মিডিয়া ভলিউম ${num(vol(v.media, v.mediaMax))}%`) + (v.media > 0 ? "" : T(" — turn it up to hear the test"," — পরীক্ষা শুনতে ভলিউম বাড়ান")))}
+    ${ok(true, T("Alarms raise the alarm volume by themselves","অ্যালার্মের সময় অ্যাপ নিজেই অ্যালার্ম ভলিউম বাড়িয়ে নেয়"))}
+    <button class="btn" data-act="vc-test" data-l="bn">${ICON.speaker}${T("Listen to the alarm voice","অ্যালার্মের কণ্ঠ শুনুন")}</button>
   </div>`;
 }
 window.onNativeResume = () => {
@@ -1291,8 +1348,8 @@ document.addEventListener("click", async e => {
     case "w-days": wiz.days = b.dataset.n; render(); break;
     case "w-freq": m.freq = b.dataset.k; if (m.freq === "week" && !(m.weekdays || []).length) m.weekdays = [new Date().getDay()]; render(); break;
     case "w-wd": { const i = +b.dataset.i; m.weekdays = (m.weekdays || []).includes(i) ? m.weekdays.filter(x => x !== i) : [...(m.weekdays || []), i]; render(); break; }
-    case "say-name": unlockAudio(); speakParts([{text: sayName(m) || m.name}]); break;
-    case "w-listen": { unlockAudio(); const u = wiz.audio || (!wiz.audioRemoved && A[m.id]); const tmp = {...m, end: wiz.days ? dkey(new Date(new Date(m.start + "T00:00").getTime() + (+wiz.days - 1) * 864e5)) : ""}; speakParts(u ? [{audio:u}] : doseLines({med:tmp, amt:(m.times[0] || {}).amt || 1}).map(text => ({text}))); break; }
+    case "say-name": unlockAudio(); speakParts(S.lang === "bn" ? nameParts(m) : [{text: sayName(m) || m.name}]); break;
+    case "w-listen": { unlockAudio(); const u = wiz.audio || (!wiz.audioRemoved && A[m.id]); const tmp = {...m, end: wiz.days ? dkey(new Date(new Date(m.start + "T00:00").getTime() + (+wiz.days - 1) * 864e5)) : ""}; const dd = {med:tmp, amt:(m.times[0] || {}).amt || 1}; speakParts(u ? [{audio:u}] : S.lang === "bn" ? [...nameParts(tmp), ...doseClipParts(dd)] : doseLines(dd).map(text => ({text}))); break; }
     case "rec": document.getElementById("file-audio").click(); break;
     case "del-rec": wiz.audio = null; wiz.audioRemoved = true; render(); break;
     case "photo": document.getElementById("file-photo").click(); break;
@@ -1324,20 +1381,7 @@ document.addEventListener("click", async e => {
     case "nat-tts": try { NAT.openTtsSettings(); } catch(err){} break;
     case "vc-install": try { NAT.openTtsInstall(); } catch(err){} break;
     case "vc-data": try { NAT.installTtsData(); } catch(err){} break;
-    case "vc-test": {
-      const l = b.dataset.l, before = (nativeTts() || {}).spoken || 0, out = document.getElementById("vc-result");
-      if (out) out.textContent = T("Speaking…","বলছে…");
-      withLang(l, () => speakParts(l === "bn" ? [{text:"আসসালামু আলাইকুম। ওষুধের সময় হয়েছে। সেকলো, একটি ক্যাপসুল, খাওয়ার আগে।"}] : [{text:"Hello. It is medicine time. Seclo, one capsule, before food."}]));
-      setTimeout(() => {
-        if (view !== "settings") return;
-        render();
-        const v = nativeTts() || {}, el = document.getElementById("vc-result"); if (!el) return;
-        el.style.cssText = "font-weight:700;color:var(--ink)";
-        el.textContent = (v.spoken || 0) > before ? T("The phone spoke. If you heard nothing, turn the media volume up.","ফোন কথা বলেছে। কিছু না শুনে থাকলে মিডিয়া ভলিউম বাড়ান।")
-          : T(`The phone could not speak (${v.lastErrorWhere || "no voice"} ${v.lastError || ""}). Follow the steps above.`, `ফোন কথা বলতে পারেনি (${v.lastErrorWhere || "ভয়েস নেই"} ${v.lastError || ""})। উপরের ধাপগুলো করুন।`);
-      }, 3500);
-      break;
-    }
+    case "vc-test": unlockAudio(); speakParts(S.lang === "bn" ? [{c:"test"}, ...SAMPLE_BN] : [{text:"Hello. It is medicine time. Seclo, one capsule, before food."}]); break;
     case "al-taken": alarmGroup.forEach(d => { if (!d.test) markDose(d.id, "taken"); }); closeAlarm(); toast(T("Well done!","খুব ভালো!")); break;
     case "al-skip": alarmGroup.forEach(d => { if (!d.test) markDose(d.id, "skipped"); }); closeAlarm(); break;
     case "al-snooze": alarmGroup.forEach(d => { snooze[d.id] = Date.now() + 10*60000; }); closeAlarm(); toast(T("I'll remind you in 10 minutes","১০ মিনিট পরে আবার মনে করিয়ে দেব")); break;
@@ -1354,7 +1398,7 @@ document.addEventListener("click", async e => {
       S.meds.filter(x => x.profile === b.dataset.id).forEach(x => { dropBlob("photos", x.id); dropBlob("audio", x.id); });
       S.meds = S.meds.filter(x => x.profile !== b.dataset.id); S.profiles = S.profiles.filter(p => p.id !== b.dataset.id); S.filter = "all"; save(); render(); break;
     // settings
-    case "test-voice": unlockAudio(); speakParts(S.lang === "bn" ? [{text:"নয়ন, ওষুধের সময় হয়েছে।"},{text:"এখন মোট দুইটি ওষুধ।"},{text:"প্রথম ওষুধ:"},{text:"সেকলো।"},{text:"একটি ক্যাপসুল।"},{text:"খাওয়ার ত্রিশ মিনিট আগে।"},{text:"দ্বিতীয় ওষুধ:"},{text:"চোখের ড্রপ।"},{text:"দুই চোখে দুই ফোঁটা করে।"}] : [{text:"It is medicine time."},{text:"Two medicines now."},{text:"Number one: Seclo. One capsule, 30 minutes before food."}]); break;
+    case "test-voice": unlockAudio(); speakParts(S.lang === "bn" ? SAMPLE_BN : [{text:"It is medicine time."},{text:"Two medicines now."},{text:"Number one: Seclo. One capsule, 30 minutes before food."}]); break;
     case "example": loadExample(); break;
     case "reset":
       if (b.dataset.confirm !== "1"){ b.dataset.confirm = "1"; b.textContent = T("Tap again: this deletes everything","আবার চাপুন: সব মুছে যাবে"); break; }

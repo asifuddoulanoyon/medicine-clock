@@ -252,12 +252,8 @@ public class AlarmActivity extends Activity {
 
     private void speakAll(Runnable after) {
         final int gen = ++speakGen;
-        JSONArray p = ev.optJSONArray("parts");
-        String lg = ev.optString("lang", "bn");
-        // No Bangla voice on this phone: say it in English rather than staying silent
-        if ("bn".equals(lg) && !tts.hasBangla() && ev.optJSONArray("partsEn") != null) { p = ev.optJSONArray("partsEn"); lg = "en"; }
-        final JSONArray parts = p;
-        final String lang = lg;
+        final JSONArray parts = ev.optJSONArray("parts");
+        final String lang = ev.optString("lang", "bn");
         final float rate = (float) ev.optDouble("rate", 0.85);
         speakPart(parts, 0, lang, rate, gen, after);
     }
@@ -268,14 +264,21 @@ public class AlarmActivity extends Activity {
         JSONObject p = parts.optJSONObject(i);
         Runnable next = () -> h.postDelayed(() -> speakPart(parts, i + 1, lang, rate, gen, after), 350);
         if (p == null) { next.run(); return; }
+        // Built-in Bangla phrase recorded into the app
+        String phrase = p.optString("c", "");
+        if (!phrase.isEmpty()) {
+            Runnable quick = () -> h.postDelayed(() -> speakPart(parts, i + 1, lang, rate, gen, after), 110);
+            if (!playAsset("voice/" + phrase + ".mp3", quick)) quick.run();
+            return;
+        }
+        // The family's own recording for this medicine
         String clipId = p.optString("a", "");
         if (!clipId.isEmpty()) {
             File f = new File(new File(getFilesDir(), "clips"), clipId);
             if (f.exists()) {
                 try {
                     clip = new MediaPlayer();
-                    clip.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+                    clip.setAudioAttributes(alarmAttrs());
                     clip.setDataSource(f.getAbsolutePath());
                     clip.setOnCompletionListener(mp -> { mp.release(); clip = null; next.run(); });
                     clip.prepare();
@@ -286,7 +289,44 @@ public class AlarmActivity extends Activity {
             next.run();
             return;
         }
-        tts.speak(p.optString("t", ""), lang, rate, () -> h.post(next));
+        // Text for the phone's voice (medicine names, notes)
+        String text = p.optString("t", "");
+        if (text.isEmpty()) { next.run(); return; }
+        String l = p.optString("l", "");
+        if (l.isEmpty()) l = lang;
+        String fb = p.optString("fb", ""), alt = p.optString("alt", "");
+        if ("bn".equals(l) && !tts.hasBangla()) {
+            if (!fb.isEmpty()) { text = fb; l = "en"; }
+            else {
+                if (alt.isEmpty() || !playAsset("voice/" + alt + ".mp3", next)) next.run();
+                return;
+            }
+        }
+        tts.speak(text, l, rate, fb, () -> h.post(next));
+    }
+
+    private AudioAttributes alarmAttrs() {
+        return new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
+    }
+
+    /** Plays a recorded phrase packed in the app. Returns false if it could not start. */
+    private boolean playAsset(String path, Runnable done) {
+        try {
+            android.content.res.AssetFileDescriptor afd = getAssets().openFd(path);
+            clip = new MediaPlayer();
+            clip.setAudioAttributes(alarmAttrs());
+            clip.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            afd.close();
+            clip.setOnCompletionListener(mp -> { mp.release(); if (clip == mp) clip = null; done.run(); });
+            clip.setOnErrorListener((mp, what, extra) -> { mp.release(); if (clip == mp) clip = null; done.run(); return true; });
+            clip.prepare();
+            clip.start();
+            return true;
+        } catch (Exception e) {
+            if (clip != null) { try { clip.release(); } catch (Exception ignored) { } clip = null; }
+            return false;
+        }
     }
 
     private void finishWith(String action) {
